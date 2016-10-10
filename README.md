@@ -41,18 +41,3 @@ Just Run the "Automatically Install Binarys.bat"
 It will do all the work for you
 if you don't have winrar use 7s
 winrar "http://rarlab.com/"
-
-###HOW TO USE GIT REMOTE###
-or create a new repository on the command line
-
-echo "# RTNET" >> README.md
-git init
-git add README.md
-git commit -m "first commit"
-git remote add origin https://github.com/renntekstudios/RTNET.git
-git push -u origin master
-
-…or push an existing repository from the command line
-
-git remote add origin https://github.com/renntekstudios/RTNET.git
-git push -u origin master
