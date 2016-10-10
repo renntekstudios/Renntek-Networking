@@ -36,6 +36,10 @@ static void Main(string[] args)
 
 
 ###Installation of server###
+Firstly download https://mega.nz/#!0N8AUb7b!qjQm9geBnmeN4RnQ2SpeW5OQP1u920Sjdu6M7sCyFkg and put it in your RT_Server directory
+
+Now
+
 Just Run the "Automatically Install Binarys.bat"
 
 It will do all the work for you
