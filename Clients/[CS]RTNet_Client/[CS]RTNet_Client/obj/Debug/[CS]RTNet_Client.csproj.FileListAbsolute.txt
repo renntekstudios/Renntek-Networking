@@ -1,0 +1,5 @@
+C:\Users\DEAN\Desktop\RTNet\[CS]RTNet_Client\[CS]RTNet_Client\bin\Debug\RTNet_Client.dll
+C:\Users\DEAN\Desktop\RTNet\[CS]RTNet_Client\[CS]RTNet_Client\bin\Debug\RTNet_Client.pdb
+C:\Users\DEAN\Desktop\RTNet\[CS]RTNet_Client\[CS]RTNet_Client\obj\Debug\[CS]RTNet_Client.csprojResolveAssemblyReference.cache
+C:\Users\DEAN\Desktop\RTNet\[CS]RTNet_Client\[CS]RTNet_Client\obj\Debug\RTNet_Client.dll
+C:\Users\DEAN\Desktop\RTNet\[CS]RTNet_Client\[CS]RTNet_Client\obj\Debug\RTNet_Client.pdb
