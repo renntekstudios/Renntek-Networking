@@ -393,6 +393,7 @@ int send(rt_client* client, rt_byte data[], size_t length)
 		LogWarning("Could not send data (%d bytes)", tosend.size());
 	else
 		result = 0;
+	LogDebug("Sent %d bytes", tosend.size());
 	return result;
 }
 
@@ -468,7 +469,7 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	short packet_internal_id = bytes_to_short(buffer, sizeof(short));
 	short packet_index = bytes_to_short(buffer, sizeof(short) * 2);
 
-	// LogDebug("STATUS: %d; INTERNAL_ID: %d; INDEX: %d", packet_status, packet_internal_id, packet_index);
+	LogDebug("STATUS: %d; INTERNAL_ID: %d; INDEX: %d", packet_status, packet_internal_id, packet_index);
 
 	unsigned int data_length = length - PACKET_SIZE;
 	rt_byte data[data_length];
@@ -477,27 +478,37 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 		v_data[i] = data[i] = buffer[i + PACKET_SIZE];
 
 	int index = -1;
-	while(index < client->unhandled_packets.size())
-		if(client->unhandled_packets[++index].packet_id == packet_internal_id)
+	for(unsigned int i = 0; i < client->unhandled_packets.size(); i++)
+	{
+		if(client->unhandled_packets[i]->packet_id == packet_internal_id)
+		{
+			index = i;
 			break;
+		}
+	}
 	if(packet_status == -1)
 	{
 		if(index >= 0)
 		{
-			client->unhandled_packets[index].bytes.emplace(packet_index, v_data);
-			if(client->unhandled_packets[index].expected > 0 && client->unhandled_packets[index].bytes.size() == client->unhandled_packets[index].expected)
+			client->unhandled_packets[index]->bytes.emplace(packet_index, v_data);
+			if(client->unhandled_packets[index]->expected > 0 && client->unhandled_packets[index]->bytes.size() == client->unhandled_packets[index]->expected)
 			{
-				client->unhandled_packets[index].get_final_buffer(data);
+				client->unhandled_packets[index]->get_final_buffer(data);
+				LogDebug("Got final packet! (%d)", client->unhandled_packets[index]->packet_id);
 				client->unhandled_packets.erase(client->unhandled_packets.begin() + index);
 			}
 			else
+			{
+				LogWarning("Don't have all packets, returning");
 				return;
+			}
 		}
 		else
 		{
-			unhandled_packet_t packet = { };
-			packet.packet_id = packet_internal_id;
+			unhandled_packet_t* packet = new unhandled_packet_t();
+			packet->packet_id = packet_internal_id;
 			client->unhandled_packets.push_back(packet);
+			LogDebug("Added new unhandled packet with ID \"%d\"", packet_internal_id);
 			return;
 		}
 	}
@@ -505,21 +516,26 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	{
 		if(index >= 0)
 		{
-			client->unhandled_packets[index].bytes.emplace(packet_index, v_data);
-			int expected = client->unhandled_packets[index].expected = packet_index + 1;
-			if(expected > 0 && client->unhandled_packets[index].bytes.size() == expected)
+			client->unhandled_packets[index]->bytes.emplace(packet_index, v_data);
+			int expected = client->unhandled_packets[index]->expected = packet_index;
+			if(expected > 0 && client->unhandled_packets[index]->bytes.size() == expected)
 			{
-				client->unhandled_packets[index].get_final_buffer(data);
+				client->unhandled_packets[index]->get_final_buffer(data);
+				LogDebug("Got final packet! (%d)", client->unhandled_packets[index]->packet_id);
 				client->unhandled_packets.erase(client->unhandled_packets.begin() + index);
 			}
 			else
+			{
+				LogWarning("Don't have all packets, returning");
 				return;
+			}
 		}
 		else
 		{
-			unhandled_packet_t packet = { };
-			packet.packet_id = packet_internal_id;
+			unhandled_packet_t* packet = new unhandled_packet_t();
+			packet->packet_id = packet_internal_id;
 			client->unhandled_packets.push_back(packet);
+			LogDebug("Added new unhandled packet with ID \"%d\"", packet_internal_id);
 			return;
 		}
 	}
@@ -529,6 +545,8 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	short packet_id = bytes_to_short(data);
 	// Log("Got \"%d\" packet from (%d)", packet_id, client->id);
 	delete buffer;
+
+	LogDebug("Got packet with ID \"%d\" (%d bytes)", packet_id, data_length);
 
 	switch((RT_PACKET_ID)packet_id)
 	{

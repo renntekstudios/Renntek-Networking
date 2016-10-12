@@ -32,7 +32,7 @@ namespace RTNet
 		rt_id id;
 		struct sockaddr_in sock_addr;
 		vector<unsigned int> unhandled_packet_ids;
-		vector<unhandled_packet_t> unhandled_packets;
+		vector<unhandled_packet_t*> unhandled_packets;
 		RT_CONNECTION_STATE connection_state;
 		RT_CLIENT_SIGNATURE signature;
 

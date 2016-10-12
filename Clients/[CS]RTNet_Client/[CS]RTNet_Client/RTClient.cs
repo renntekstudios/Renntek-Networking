@@ -29,6 +29,8 @@ namespace RTNet
 		public string Address { get { return EndPoint == null ? "" : ((IPEndPoint)EndPoint).Address.ToString(); } }
 		public int Port { get { return EndPoint == null ? 0 : ((IPEndPoint)EndPoint).Port; } }
 
+		// TODO: Send ID to client when connection established
+		public short ID { get; private set; }
 		public RTConnectionStatus Status { get; private set; }
 		public bool Connected { get { return Status != RTConnectionStatus.Disconnected; } }
 
@@ -149,7 +151,8 @@ namespace RTNet
 			return index;
 		}
 
-		public int Send(RTPacketID packetID)
+		public int Send(RTPacketID packetID) { return Send((short)packetID); }
+		public int Send(short packetID)
 		{
 			if(!Connected)
 			{
@@ -168,7 +171,8 @@ namespace RTNet
 			return result;
 		}
 
-		public int Send(RTPacketID packetID, byte[] buffer)
+		public int Send(RTPacketID packetID, byte[] buffer) { return Send((short)packetID, buffer); }
+		public int Send(short packetID, byte[] buffer)
 		{
 			if(!Connected)
 			{

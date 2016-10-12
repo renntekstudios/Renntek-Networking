@@ -46,7 +46,10 @@ int main(int argc, char** argv)
 	}
 	stop();
 
+	#ifdef _WIN32
+	cout << endl << endl << "Press any key to exit..." << endl;
 	getchar();
+	#endif
 	return 0;
 }
 
