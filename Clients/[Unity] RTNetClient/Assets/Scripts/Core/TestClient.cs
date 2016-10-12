@@ -14,32 +14,17 @@ public class TestClient : MonoBehaviour
 
 	private string myMessage = "";
 
-    public string pos;
 
 	//temp
 	[SerializeField]
 	List<string> messages = new List<string>();
-
-    public GameObject player;
 
 	void Start()
 	{
 		RTNetView.Client.Connect(ip, port);
 	}
 
-    void Update()
-    {
-        if(player != null)
-         pos = player.transform.position.x.ToString() + "," + player.transform.position.y.ToString() + "," + player.transform.position.z.ToString();
-    }
-
-    public void SendMyPosition()
-    {
-        GetComponent<RTNetView>().RPC("UpdateMyPos", RTReceiver.All, pos);
-
-    }
-
-    void ShowMessage(string message)
+	void ShowMessage(string message)
 	{
 		Debug.Log("GOT MESSAGE - " + message);
 		messages.Add(message);
@@ -54,8 +39,6 @@ public class TestClient : MonoBehaviour
 			if(GUILayout.Button("Instantiate"))
 				RTNetView.NetworkInstantiate("Rectangle Thingy");
 
-            if (GUILayout.Button("Sync Pos"))
-                SendMyPosition();
             myMessage = GUILayout.TextField(myMessage);
             if (GUILayout.Button("Send", GUILayout.Width(Screen.width / 6)))
             {
@@ -79,23 +62,5 @@ public class TestClient : MonoBehaviour
 			else
 				GUILayout.Label("No Messages");
         }
-    }
-
-    void UpdateMyPos(string message)
-    {
-        Debug.LogWarning("[UPDATE POSITION]" + message);
-
-        string[] split = message.Split(',');
-        float x = float.Parse(split[0]);
-        float y = float.Parse(split[1]);
-        float z = float.Parse(split[2]);
-
-        Vector3 posi = player.transform.position;
-        posi.x = x;
-        posi.y = y;
-        posi.z = z;
-        player.transform.position = posi;
-
-        Debug.Log("[POS] Position Updated " + pos);
     }
 }
