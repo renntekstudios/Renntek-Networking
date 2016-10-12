@@ -88,6 +88,7 @@ namespace RTNet
 			Status = RTConnectionStatus.Disconnected;
 			Socket.Close();
 			_endpoint = null;
+			OnDisconnected();
 			Log("Disconnected from server");
 		}
 
@@ -109,6 +110,7 @@ namespace RTNet
 								Status = RTConnectionStatus.Disconnected;
 								return;
 							}
+							OnConnected();
 							Log("Connected to server");
 							Status = RTConnectionStatus.Connected;
 							continue;
@@ -223,6 +225,9 @@ namespace RTNet
 		}
 
 		internal protected virtual void HandlePacket(short packetID, byte[] data) { }
+
+		protected virtual void OnConnected() { }
+		protected virtual void OnDisconnected() { }
 
 		#region Logging
 		internal protected virtual void Log(string message) { }

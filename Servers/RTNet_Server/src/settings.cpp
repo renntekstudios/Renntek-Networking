@@ -26,7 +26,7 @@ int Settings::UDPPort = DEFAULT_UDP_PORT;
 int Settings::TCPPort = DEFAULT_TCP_PORT;
 int Settings::BufferSize = DEFAULT_BUFFERSIZE;
 bool Settings::DebugMode = false;
-RT_UNKNOWN_BEHAVIOUR Settings::UnknownBehaviour = RT_BEHAVIOUR_OTHERS;
+RT_UNKNOWN_BEHAVIOUR Settings::UnknownBehaviour = RT_BEHAVIOUR_ALL;
 
 const vector<string> Settings::importantDirectories = { "Accounts/" };
 

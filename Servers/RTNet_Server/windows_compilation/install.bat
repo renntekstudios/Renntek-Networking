@@ -4,6 +4,6 @@ echo Unzipping
 
 echo Extracting Required tools
 cd ..
-"windows_compilation\7zip\7za.exe" x "windows_compilation\tools.zip"
+"windows_compilation\7zip\7za.exe" x "windows_compilation\tools.7z"
 
 exit
