@@ -121,7 +121,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rb: {fileID: 54000010394413056}
   speed: 10
-  pos: 
 --- !u!114 &114000011027304718
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -130,7 +129,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1000011890240418}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 390532483, guid: 3a18e7d8d40b60142b7826c4eed0bdad, type: 3}
+  m_Script: {fileID: -917619166, guid: 3a18e7d8d40b60142b7826c4eed0bdad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ViewID: 1
+  ViewID: 0
