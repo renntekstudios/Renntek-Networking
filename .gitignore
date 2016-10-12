@@ -1,0 +1,59 @@
+## .gitignore
+
+*.o
+*.a
+*.so
+*.dll
+*.lib
+*.tmp
+*.obj
+*.pdb
+*.log
+*.meta
+*.nupkg
+*.dylib
+*.tmp_proj
+*.[Cc]ache
+
+# Directories
+.vs/
+x64/
+x86/
+bld/
+[Ll]og/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Rr]eleases/
+!*.[Cc]ache/
+
+# Unity directories
+/[Bb]in/
+/[Tt]emp/
+/[Oo]bj]/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ibrary/
+/Assets/AssetStoreTools*
+
+ExportedObj/
+.consulo/
+*.csproj
+*.unityproj
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+
+*.pidb.meta
+
+# Unity3D generated files on crash report
+sysinfo.txt
+
+# Executables
+*.exe
+*.out
+*.app
