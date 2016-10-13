@@ -3,6 +3,7 @@ using System.Collections;
 using RTNet;
 using System;
 using System.Collections.Generic;
+using RTNetClient_Unity;
 
 [RequireComponent(typeof(RTNetView))]
 public class TestClient : MonoBehaviour
@@ -14,6 +15,7 @@ public class TestClient : MonoBehaviour
 
 	private string myMessage = "";
 
+    public string pos;
 
 	//temp
 	[SerializeField]
@@ -24,7 +26,7 @@ public class TestClient : MonoBehaviour
 		RTNetView.Client.Connect(ip, port);
 	}
 
-	void ShowMessage(string message)
+    void ShowMessage(string message)
 	{
 		Debug.Log("GOT MESSAGE - " + message);
 		messages.Add(message);
@@ -44,9 +46,10 @@ public class TestClient : MonoBehaviour
             {
                 if (!string.IsNullOrEmpty(myMessage))
                 {
-					GetComponent<RTNetView>().RPC("ShowMessage", RTReceiver.All, myMessage);
-					myMessage = "";
+                    GetComponent<RTNetView>().RPC("ShowMessage", RTReceiver.All, myMessage);
+                    myMessage = "";
                 }
+                else Debug.LogError("My Message Was Null");
             }
 
 			//temp

@@ -14,6 +14,7 @@ namespace RTNet
 		Instantiate = 102
 	}
 
+<<<<<<< HEAD
 	public enum RTReceiver : short { All = -1, Others = -2 }
 
 	public class RTNetClient : RTClient
@@ -413,4 +414,11 @@ namespace RTNet
 
 		public static InstantiateRequest FromData(byte[] data) { return (InstantiateRequest)new BinaryFormatter().Deserialize(new MemoryStream(data)); }
 	}
+=======
+	public enum RTReceiver : short
+    {
+        All = -1,
+        Others = -2
+    };
+>>>>>>> origin/master
 }
