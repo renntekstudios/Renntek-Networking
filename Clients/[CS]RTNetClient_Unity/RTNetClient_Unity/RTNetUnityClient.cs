@@ -118,13 +118,13 @@ namespace RTNet
 			for(int i = 0; i < args.Length; i++)
 			{
 				if (args[i].GetType().Equals(typeof(Vector2)))
-					args[i] = (Vec2)args[i];
+					args[i] = (Vec2)(Vector2)args[i];
 				else if (args[i].GetType().Equals(typeof(Vector3)))
-					args[i] = (Vec3)args[i];
+					args[i] = (Vec3)(Vector3)args[i];
 				else if (args[i].GetType().Equals(typeof(Vector4)))
-					args[i] = (Vec4)args[i];
+					args[i] = (Vec4)(Vector4)args[i];
 				else if (args[i].GetType().Equals(typeof(Quaternion)))
-					args[i] = (Vec4)args[i];
+					args[i] = Vec4.FromQuaternion((Quaternion)args[i]);
 			}
 
 			rpc.Args = args;
@@ -194,7 +194,24 @@ namespace RTNet
 				ViewID = _viewID;
 		}
 
-		internal static void HandleRPC(RTNetRPC rpc) { unhandledRPCs.Add(rpc); }
+		internal static void HandleRPC(RTNetRPC rpc)
+		{
+			for(int i = 0; i < rpc.Args.Length; i++)
+			{
+				if (rpc.Args[i].GetType().Equals(typeof(Vec2)))
+					rpc.Args[i] = (Vector2)(Vec2)rpc.Args[i];
+				else if (rpc.Args[i].GetType().Equals(typeof(Vec3)))
+					rpc.Args[i] = (Vector3)(Vec3)rpc.Args[i];
+				else if (rpc.Args[i].GetType().Equals(typeof(Vec4)))
+				{
+					if (((Vec4)rpc.Args[i]).isQuaternion)
+						rpc.Args[i] = (Quaternion)(Vec4)rpc.Args[i];
+					else
+						rpc.Args[i] = (Vector4)(Vec4)rpc.Args[i];
+				}
+			}
+			unhandledRPCs.Add(rpc);
+		}
 
 		public void OnApplicationQuit()
 		{
@@ -320,6 +337,7 @@ namespace RTNet
 	[Serializable]
 	internal class Vec4 // Quaternions can also be converted to Vec4
 	{
+		public bool isQuaternion;
 		public float x, y, z, w;
 
 		public Vec4() { x = 0; y = 0; z = 0; w = 0; }
@@ -330,7 +348,7 @@ namespace RTNet
 		public Quaternion ToQuaternion() { return new Quaternion(x, y, z, w); }
 		public static Vec4 zero { get { return new Vec4(0, 0, 0, 0); } }
 		public static Vec4 FromVector4(Vector4 v) { return new Vec4(v.x, v.y, v.z, v.w); }
-		public static Vec4 FromQuaternion(Quaternion v) { return new Vec4(v.x, v.y, v.z, v.w); }
+		public static Vec4 FromQuaternion(Quaternion v) { return new Vec4(v.x, v.y, v.z, v.w) { isQuaternion = true }; }
 
 		public byte[] Data
 		{

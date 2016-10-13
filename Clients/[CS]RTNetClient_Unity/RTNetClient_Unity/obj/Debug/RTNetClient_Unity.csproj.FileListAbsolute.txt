@@ -7,3 +7,12 @@ C:\Users\lcoms\Documents\GitHub\RENET-NETWORKING\Clients\[CS]RTNetClient_Unity\R
 C:\Users\lcoms\Documents\GitHub\RENET-NETWORKING\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.csprojResolveAssemblyReference.cache
 C:\Users\lcoms\Documents\GitHub\RENET-NETWORKING\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.dll
 C:\Users\lcoms\Documents\GitHub\RENET-NETWORKING\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.pdb
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\bin\Debug\RTNetClient_Unity.dll
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\bin\Debug\RTNetClient_Unity.pdb
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\bin\Debug\RTNet_Client.dll
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\bin\Debug\UnityEngine.dll
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\bin\Debug\RTNet_Client.pdb
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\bin\Debug\UnityEngine.xml
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.csprojResolveAssemblyReference.cache
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.dll
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.pdb
