@@ -14,7 +14,6 @@ namespace RTNet
 		Instantiate = 102
 	}
 
-<<<<<<< HEAD
 	public enum RTReceiver : short { All = -1, Others = -2 }
 
 	public class RTNetClient : RTClient
@@ -93,17 +92,23 @@ namespace RTNet
 		public short ViewID = 0;
 		private short _viewID;
 
+		[SerializeField]
+		public short OwnerID = 0;
+		private short _ownerID;
+
 		private static List<short> viewIDs = new List<short>();
 		private static List<RTNetRPC> unhandledRPCs = new List<RTNetRPC>();
 		private static List<InstantiateRequest> instantiationRequests = new List<InstantiateRequest>();
 
-		public RTNetView()
+		public void Awake()
 		{
 			while (viewIDs.Contains(ViewID))
 				ViewID++;
 			_viewID = ViewID;
+			viewIDs.Add(ViewID);
 			if (Client == null)
 				Client = new RTNetClient();
+			_ownerID = ID;
 		}
 
 		public void RPC(string method, RTReceiver receiver, params object[] args) { RPC(method, (short)receiver, args); }
@@ -143,7 +148,7 @@ namespace RTNet
 			bool found = false;
 			for (int i = 0; i < unhandledRPCs.Count; i++)
 			{
-				if (unhandledRPCs[i].ViewID == this.ViewID)
+				if (unhandledRPCs[i].ViewID == this.ViewID && ((unhandledRPCs[i].Receiver == (short)RTReceiver.Others && unhandledRPCs[i].SenderID != ID) || unhandledRPCs[i].Receiver == ID || unhandledRPCs[i].Receiver == (short)RTReceiver.All))
 				{
 					if (unhandledRPCs[i].Receiver == (short)RTReceiver.All || (unhandledRPCs[i].Receiver == (short)RTReceiver.Others && unhandledRPCs[i].SenderID != Client.ID) || unhandledRPCs[i].ViewID == Client.ID)
 					{
@@ -155,7 +160,18 @@ namespace RTNet
 							{
 								if (method.Name.ToLower().Equals(unhandledRPCs[i].Method.ToLower()))
 								{
-									method.Invoke(behaviours[i], unhandledRPCs[i].Args);
+									try
+									{
+										method.Invoke(method.IsStatic ? null : b, unhandledRPCs[i].Args);
+									}
+									catch(Exception e)
+									{
+										string m = method.Name + "(";
+										for (int a = 0; a < unhandledRPCs[i].Args.Length; a++)
+											m += unhandledRPCs[i].Args[a].GetType().Name + (a < unhandledRPCs[i].Args.Length - 1 ? ", " : "");
+										m += ")";
+										Debug.LogWarning("[RTNet][WARNING] Could not invoke \"" + m + "\" - " + e.Message);
+									}
 									found = true;
 									break;
 								}
@@ -186,11 +202,12 @@ namespace RTNet
 				GameObject instantiated = (GameObject)Instantiate(prefab, instantiationRequests[i].Position, instantiationRequests[i].Rotation);
 				if(instantiationRequests[i].Scale != new Vector3(1, 1, 1))
 					instantiated.transform.localScale = instantiationRequests[i].Scale;
+				if (instantiated.GetComponent<RTNetView>())
+					instantiated.GetComponent<RTNetView>()._ownerID = instantiationRequests[i].SenderID;
 				instantiationRequests.RemoveAt(i);
 			}
 			#endregion
-
-			// No one tampers with MYYY ID!!
+			
 			if (ViewID != _viewID)
 				ViewID = _viewID;
 		}
@@ -265,6 +282,21 @@ namespace RTNet
 		}
 
 		internal static void HandleInstantiationRequest(InstantiateRequest request) { instantiationRequests.Add(request); }
+
+		private void _internal_destroy()
+		{
+			DestroyImmediate(gameObject);
+		}
+
+		public void NetworkDestroy(RTReceiver receiver = RTReceiver.All)
+		{
+			RPC("_internal_destroy", receiver);
+		}
+
+		public void NetworkDestroy(short receiver)
+		{
+			RPC("_internal_destroy", receiver);
+		}
 	}
 
 	[Serializable]
@@ -336,7 +368,7 @@ namespace RTNet
 	}
 
 	[Serializable]
-	internal class Vec4 // Quaternions can also be converted to Vec4
+	internal class Vec4 // Quaternions can also be converted to Vec4b
 	{
 		public bool isQuaternion;
 		public float x, y, z, w;
@@ -414,11 +446,4 @@ namespace RTNet
 
 		public static InstantiateRequest FromData(byte[] data) { return (InstantiateRequest)new BinaryFormatter().Deserialize(new MemoryStream(data)); }
 	}
-=======
-	public enum RTReceiver : short
-    {
-        All = -1,
-        Others = -2
-    };
->>>>>>> origin/master
 }

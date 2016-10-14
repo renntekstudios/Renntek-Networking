@@ -1,7 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
 using RTNet;
-using RTNetClient_Unity;
 
 public class TestMovement : MonoBehaviour {
 

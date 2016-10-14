@@ -13,7 +13,8 @@ namespace RTNet
 	public enum RTConnectionStatus { Disconnected, Connecting, Connected }
 	public enum RTPacketID : short
 	{
-		Disconnect = 1
+		Disconnect = 1,
+		Auth = 2
 	}
 
 	public class RTClient
@@ -28,8 +29,7 @@ namespace RTNet
 		public bool Timeout { get { return timeout; } set { if (Status != RTConnectionStatus.Disconnected) return; else timeout = value; } }
 		public string Address { get { return EndPoint == null ? "" : ((IPEndPoint)EndPoint).Address.ToString(); } }
 		public int Port { get { return EndPoint == null ? 0 : ((IPEndPoint)EndPoint).Port; } }
-
-		// TODO: Send ID to client when connection established
+		
 		public short ID { get; private set; }
 		public RTConnectionStatus Status { get; private set; }
 		public bool Connected { get { return Status != RTConnectionStatus.Disconnected; } }
@@ -123,6 +123,10 @@ namespace RTNet
 						{
 							case RTPacketID.Disconnect:
 								Disconnect(false);
+								break;
+							case RTPacketID.Auth:
+								ID = BitConverter.ToInt16(buffer, 0);
+								LogDebug("Got ID \"" + ID + "\"");
 								break;
 							default:
 								HandlePacket(packetID, buffer);

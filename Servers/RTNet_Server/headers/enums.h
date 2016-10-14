@@ -12,6 +12,7 @@ namespace RTNet
 	enum RT_PACKET_ID : short
 	{
 		RT_PACKET_DISCONNECT = 1,
+		RT_PACKET_AUTH = 2
 	};
 
 	enum ERROR_CODES : short

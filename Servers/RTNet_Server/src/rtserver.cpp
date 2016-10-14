@@ -149,6 +149,16 @@ void receive()
 			if((result = send_raw(client_id, temp, 3)) < 0)
 				LogError("Could not send initial data to client \"%d\" (%d)", client_id, result);
 			delete data;
+
+			int auth_data_length = 4;
+			char auth_data[auth_data_length];
+			vector<char> temp_auth = short_to_bytes((short)RT_PACKET_AUTH);
+			auth_data[0] = temp_auth[0];
+			auth_data[1] = temp_auth[1];
+			temp_auth = short_to_bytes(client_id);
+			auth_data[2] = temp_auth[0];
+			auth_data[3] = temp_auth[1];
+			send(&clients[client_id], auth_data, auth_data_length);
 		}
 		else
 			handle_packet(client, data, receive_length);

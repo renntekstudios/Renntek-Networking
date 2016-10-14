@@ -3,7 +3,6 @@ using System.Collections;
 using RTNet;
 using System;
 using System.Collections.Generic;
-using RTNetClient_Unity;
 
 [RequireComponent(typeof(RTNetView))]
 public class TestClient : MonoBehaviour

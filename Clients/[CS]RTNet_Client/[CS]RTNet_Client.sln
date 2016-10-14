@@ -5,8 +5,6 @@ VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "[CS]RTNet_Client", "[CS]RTNet_Client\[CS]RTNet_Client.csproj", "{CBE0F968-9678-4852-8A0E-447F0928C3DD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestClient", "TestClient\TestClient.csproj", "{29BB6F73-AB62-45F7-8B68-E9A8EFC8C1B7}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{CBE0F968-9678-4852-8A0E-447F0928C3DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CBE0F968-9678-4852-8A0E-447F0928C3DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CBE0F968-9678-4852-8A0E-447F0928C3DD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{29BB6F73-AB62-45F7-8B68-E9A8EFC8C1B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{29BB6F73-AB62-45F7-8B68-E9A8EFC8C1B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{29BB6F73-AB62-45F7-8B68-E9A8EFC8C1B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{29BB6F73-AB62-45F7-8B68-E9A8EFC8C1B7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
