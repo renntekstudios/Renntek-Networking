@@ -23,7 +23,8 @@ GameObject:
   - 65: {fileID: 65000010348155438}
   - 23: {fileID: 23000010732126900}
   - 114: {fileID: 114000010744886470}
-  - 114: {fileID: 114000012439407220}
+  - 114: {fileID: 114000013175318290}
+  - 114: {fileID: 114000011084948210}
   m_Layer: 0
   m_Name: Rectangle Thingy
   m_TagString: Untagged
@@ -103,8 +104,21 @@ MonoBehaviour:
   m_Script: {fileID: 390532483, guid: 3a18e7d8d40b60142b7826c4eed0bdad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isPlayer: 0
   ViewID: 0
---- !u!114 &114000012439407220
+  OwnerID: -99
+--- !u!114 &114000011084948210
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1000011872330522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 492625e464fe2c346ab8cf0c662dbbb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &114000013175318290
 MonoBehaviour:
   m_ObjectHideFlags: 1
   m_PrefabParentObject: {fileID: 0}

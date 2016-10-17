@@ -6,3 +6,4 @@ C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity
 C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\bin\Debug\UnityEngine.xml
 C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.dll
 C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.pdb
+C:\Users\lcoms\Documents\GitHub\Renntek-Networking\Clients\[CS]RTNetClient_Unity\RTNetClient_Unity\obj\Debug\RTNetClient_Unity.csprojResolveAssemblyReference.cache

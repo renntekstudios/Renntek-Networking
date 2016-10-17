@@ -11,7 +11,8 @@ namespace RTNet
 	internal enum UnityPackets : short
 	{
 		RPC = 101,
-		Instantiate = 102
+		Instantiate = 102,
+		SerializedData = 103,
 	}
 
 	public enum RTReceiver : short { All = -1, Others = -2 }
@@ -35,20 +36,23 @@ namespace RTNet
 					RTNetView.HandleInstantiationRequest(InstantiateRequest.FromData(data));
 					break;
 				default:
-					LogWarning("Got unhandled packet with ID \"" + packetID + "\"");
+					handlePacket?.Invoke(packetID, data);
+					LogDebug("Got unhandled packet with ID \"" + packetID + "\"");
 					break;
 			}
 		}
 
-		protected override void OnConnected()
-		{
-			Log("OVERRIDE - Connected to server!");
-		}
+		protected override void OnConnected() { onConnected?.Invoke(); }
+		protected override void OnDisconnected() { onDisconnected?.Invoke(); }
 
-		protected override void OnDisconnected()
-		{
-			Log("OVERRIDE - Disconnected from server");
-		}
+		internal delegate void _onConnected();
+		internal static event _onConnected onConnected;
+
+		internal delegate void _onDisconnected();
+		internal static event _onDisconnected onDisconnected;
+
+		internal delegate void _handlePacket(short packetID, byte[] data);
+		internal static event _handlePacket handlePacket;
 	}
 
 	[Serializable()]
@@ -88,19 +92,22 @@ namespace RTNet
 		public static string Address { get { return Client != null ? Client.Address : string.Empty; } }
 		public static int Port { get { return Client != null ? Client.Port : 0; } }
 
+		public bool isMine { get { return _ownerID == ID; } }
+		public bool isPlayer;
+
 		[SerializeField]
 		public short ViewID = 0;
 		private short _viewID;
 
 		[SerializeField]
-		public short OwnerID = 0;
-		private short _ownerID;
+		public short OwnerID = -99;
+		private short _ownerID = -99;
 
 		private static List<short> viewIDs = new List<short>();
 		private static List<RTNetRPC> unhandledRPCs = new List<RTNetRPC>();
 		private static List<InstantiateRequest> instantiationRequests = new List<InstantiateRequest>();
 
-		public void Awake()
+		void Awake()
 		{
 			while (viewIDs.Contains(ViewID))
 				ViewID++;
@@ -108,7 +115,12 @@ namespace RTNet
 			viewIDs.Add(ViewID);
 			if (Client == null)
 				Client = new RTNetClient();
-			_ownerID = ID;
+			if (_ownerID < 0)
+				_ownerID = ID;
+			OwnerID = _ownerID;
+
+			if (GetComponent<RTNetBehaviour>())
+				GetComponent<RTNetBehaviour>().Init();
 		}
 
 		public void RPC(string method, RTReceiver receiver, params object[] args) { RPC(method, (short)receiver, args); }
@@ -131,6 +143,8 @@ namespace RTNet
 					args[i] = (Vec4)(Vector4)args[i];
 				else if (args[i].GetType().Equals(typeof(Quaternion)))
 					args[i] = Vec4.FromQuaternion((Quaternion)args[i]);
+				else if (args[i].GetType().Equals(typeof(Color)))
+					args[i] = Vec4.FromColor((Color)args[i]);
 			}
 
 			rpc.Args = args;
@@ -222,8 +236,10 @@ namespace RTNet
 					rpc.Args[i] = (Vector3)(Vec3)rpc.Args[i];
 				else if (rpc.Args[i].GetType().Equals(typeof(Vec4)))
 				{
-					if (((Vec4)rpc.Args[i]).isQuaternion)
+					if (((Vec4)rpc.Args[i]).Type == Vec4.Vec4Type.Quaternion)
 						rpc.Args[i] = (Quaternion)(Vec4)rpc.Args[i];
+					else if (((Vec4)rpc.Args[i]).Type == Vec4.Vec4Type.Color)
+						rpc.Args[i] = (Color)(Vec4)rpc.Args[i];
 					else
 						rpc.Args[i] = (Vector4)(Vec4)rpc.Args[i];
 				}
@@ -233,7 +249,8 @@ namespace RTNet
 
 		public void OnApplicationQuit()
 		{
-			Client.Disconnect();
+			if(Client != null && Connected)
+				Client.Disconnect();
 		}
 
 		/// <summary>
@@ -297,6 +314,8 @@ namespace RTNet
 		{
 			RPC("_internal_destroy", receiver);
 		}
+
+		public RTServerInfo GetLocalServers(int port = 4434) { return Client.DiscoverLAN(port); }
 	}
 
 	[Serializable]
@@ -370,7 +389,8 @@ namespace RTNet
 	[Serializable]
 	internal class Vec4 // Quaternions can also be converted to Vec4b
 	{
-		public bool isQuaternion;
+		internal enum Vec4Type { Normal, Quaternion, Color }
+		public Vec4Type Type { get; internal set; }
 		public float x, y, z, w;
 
 		public Vec4() { x = 0; y = 0; z = 0; w = 0; }
@@ -379,9 +399,11 @@ namespace RTNet
 
 		public Vector4 ToVector4() { return new Vector4(x, y, z, w); }
 		public Quaternion ToQuaternion() { return new Quaternion(x, y, z, w); }
+		public Color ToColor() { return new Color(x, y, z, w); }
 		public static Vec4 zero { get { return new Vec4(0, 0, 0, 0); } }
 		public static Vec4 FromVector4(Vector4 v) { return new Vec4(v.x, v.y, v.z, v.w); }
-		public static Vec4 FromQuaternion(Quaternion v) { return new Vec4(v.x, v.y, v.z, v.w) { isQuaternion = true }; }
+		public static Vec4 FromQuaternion(Quaternion v) { return new Vec4(v.x, v.y, v.z, v.w) { Type = Vec4Type.Quaternion }; }
+		public static Vec4 FromColor(Color c) { return new Vec4(c.r, c.g, c.b, c.a) { Type = Vec4Type.Color }; }
 
 		public byte[] Data
 		{
@@ -402,9 +424,11 @@ namespace RTNet
 
 		public static implicit operator Vector4(Vec4 v) { return v.ToVector4(); }
 		public static implicit operator Quaternion(Vec4 v) { return v.ToQuaternion(); }
+		public static implicit operator Color(Vec4 c) { return c.ToColor(); }
 
 		public static implicit operator Vec4(Vector4 v) { return FromVector4(v); }
 		public static implicit operator Vec4(Quaternion v) { return FromQuaternion(v); }
+		public static implicit operator Vec4(Color c) { return FromColor(c); }
 	}
 
 	[Serializable]

@@ -45,6 +45,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="RTNetBehaviour.cs" />
+    <Compile Include="RTNetSync.cs" />
     <Compile Include="RTNetUnityClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

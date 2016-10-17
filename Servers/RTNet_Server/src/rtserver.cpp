@@ -104,6 +104,13 @@ void receive()
 		if(receive_length <= 0)
 			continue;
 
+		if(receive_length == 3 && buffer[0] == (char)17 && buffer[1] == (char)19 && buffer[2] == (char)RT_PACKET_DISCOVER)
+		{
+			LogDebug("Got discover packet");
+			sendto(udp_socket, buffer, receive_length, 0, (struct sockaddr*)&addr, sizeof(addr));
+			continue;
+		}
+
 		rt_id client_id = -1;
 		rt_client* client;
 		char* address = inet_ntoa(addr.sin_addr);
@@ -144,6 +151,7 @@ void receive()
 				delete data;
 				continue;
 			}
+
 			client->signature = (RT_CLIENT_SIGNATURE)data[2];
 			char temp[] = { 17, 19, (char)RT_SIGNATURE_SERVER };
 			if((result = send_raw(client_id, temp, 3)) < 0)

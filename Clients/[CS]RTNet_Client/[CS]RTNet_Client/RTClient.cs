@@ -11,6 +11,10 @@ using System.Runtime.InteropServices;
 namespace RTNet
 {
 	public enum RTConnectionStatus { Disconnected, Connecting, Connected }
+	internal enum InternalPacketID : short
+	{
+		LANDiscovery = 3
+	}
 	public enum RTPacketID : short
 	{
 		Disconnect = 1,
@@ -41,6 +45,8 @@ namespace RTNet
 
 		private Thread receiveThread;
 		private List<short> internalIDs = new List<short>();
+
+		private List<RTServerInfo> servers = new List<RTServerInfo>();
 
 		public RTClient()
 		{
@@ -107,7 +113,6 @@ namespace RTNet
 							if(buffer[0] != (byte)17 || buffer[1] != (byte)19 || buffer[2] != (byte)RTClientSignatures.Server)
 							{
 								LogError("Server has invalid signature!");
-								Status = RTConnectionStatus.Disconnected;
 								return;
 							}
 							OnConnected();
@@ -230,6 +235,27 @@ namespace RTNet
 
 		internal protected virtual void HandlePacket(short packetID, byte[] data) { }
 
+		/// <summary>
+		/// Searches for any RTNet servers in the local network on the given port
+		/// <param name="port">Port that any server may be on</param>
+		/// </summary>
+		public RTServerInfo DiscoverLAN(int port, int timeout = 3)
+		{
+			RTServerInfo info = null;
+			Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+			s.EnableBroadcast = true;
+			s.ReceiveTimeout = timeout * 1000;
+			EndPoint ep = new IPEndPoint(IPAddress.Parse("255.255.255.255"), port);
+			s.SendTo(new byte[] { (byte)17, (byte)19, (byte)(short)InternalPacketID.LANDiscovery }, ep);
+
+			byte[] buffer = new byte[3];
+			ep = new IPEndPoint(IPAddress.Any, port);
+			s.ReceiveFrom(buffer, ref ep);
+			if (buffer[0] == (byte)17 && buffer[1] == (byte)19 && buffer[2] == (byte)(short)InternalPacketID.LANDiscovery)
+				info = new RTServerInfo(((IPEndPoint)ep).Address.ToString(), ((IPEndPoint)ep).Port, true);
+			return info;
+		}
+
 		protected virtual void OnConnected() { }
 		protected virtual void OnDisconnected() { }
 
@@ -240,5 +266,36 @@ namespace RTNet
 		internal protected virtual void LogError(string error) { }
 		internal protected virtual void LogException(Exception e, string error = "") { }
 		#endregion
+	}
+
+	public class RTServerInfo
+	{
+		/// <summary>
+		/// Contains the IP address of the server
+		/// </summary>
+		public string IP { get; internal set; }
+		/// <summary>
+		/// Contains the port number of the server
+		/// </summary>
+		public int Port { get; internal set; }
+
+		/// <summary>
+		/// Returns true if the server is on the local network
+		/// </summary>
+		public bool isLocal { get; internal set; }
+
+		internal RTServerInfo(string ip, int port)
+		{
+			this.IP = ip;
+			this.Port = port;
+			this.isLocal = false;
+		}
+
+		internal RTServerInfo(string ip, int port, bool local)
+		{
+			this.IP = ip;
+			this.Port = port;
+			this.isLocal = local;
+		}
 	}
 }

@@ -6,14 +6,14 @@ using RTNet;
 [RequireComponent(typeof(RTNetView))]
 public class TestMove : MonoBehaviour
 {
-	void OnGUI()
+	void Update()
 	{
-		if (GUI.Button(new Rect((Screen.width / 2) - 50, (Screen.height / 2) - 12.5f, 100, 25), "Move"))
-			GetComponent<RTNetView>().RPC("RPCMove", RTReceiver.All, transform.position + new Vector3(0, 0, 1));
-	}
+		if(GetComponent<RTNetView>().isMine)
+		{
+			float h = Input.GetAxis("Horizontal");
+			float v = Input.GetAxis("Vertical");
 
-	public void RPCMove(Vector3 pos)
-	{
-		transform.position = pos;
+			transform.position += new Vector3(h, 0, v);
+		}
 	}
 }
