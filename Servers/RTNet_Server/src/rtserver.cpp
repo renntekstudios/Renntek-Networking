@@ -96,10 +96,9 @@ void receive()
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 	rt_byte* temp_data;
-	char buffer[Settings::BufferSize];
 	while(running)
 	{		
-		buffer[Settings::BufferSize];
+		char buffer[Settings::BufferSize];
 		receive_length = recvfrom(udp_socket, buffer, Settings::BufferSize, 0, (struct sockaddr*)&addr, &addrlen);
 		if(receive_length <= 0)
 			continue;
@@ -148,7 +147,7 @@ void receive()
 			if(data[0] != 17 || data[1] != 19)
 			{
 				LogError("A client tried connecting with an unknown signature (%d)", client_id);
-				delete data;
+				delete[] data;
 				continue;
 			}
 
@@ -156,7 +155,7 @@ void receive()
 			char temp[] = { 17, 19, (char)RT_SIGNATURE_SERVER };
 			if((result = send_raw(client_id, temp, 3)) < 0)
 				LogError("Could not send initial data to client \"%d\" (%d)", client_id, result);
-			delete data;
+			delete[] data;
 
 			int auth_data_length = 4;
 			char auth_data[auth_data_length];

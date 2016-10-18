@@ -43,7 +43,7 @@ namespace RTNet
                 #ifdef _WIN32
                 int result = CreateDirectory(dir.c_str(), NULL) ? 0 : -1;
                 #else
-                int result = mkdir(dir.c_str(), 077);
+                int result = mkdir(dir.c_str(), 777);
                 #endif
                 if(result == 0)
                     return true;
@@ -53,7 +53,7 @@ namespace RTNet
             return false;
         }
 
-        static int ArrayLength(float array[])
+        static int ArrayLength(float* array)
         {
             return sizeof(array) / sizeof(float);
         }
@@ -122,7 +122,13 @@ namespace RTNet
         template<class T>
         static string ToString(T value)
         {
+            #ifdef __APPLE__
+            stringstream s(stringstream::in | stringstream::out);
+            s << value;
+            return s.str();
+            #else // use hax
             return static_cast<stringstream*>(&(stringstream(stringstream::in | stringstream::out) << value))->str();
+            #endif
         }
 
         static string TrimStart(const string& s)
