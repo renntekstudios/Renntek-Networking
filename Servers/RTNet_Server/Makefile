@@ -37,7 +37,6 @@ ifeq '$(UNAME_S)' 'Darwin'
 		mkdir -p bin/server/RTNet_Server.app/MacOS/
 		$(CC) -o bin/server/RTNet_Server.app/MacOS/RTNet_Server $(DEPS) $(CFLAGS_EXEC)
 		chmod a+x bin/server/RTNet_Server.app
-		mkdir -p bin/server/RTNet_Server.app/Contents/
 		mkdir -p bin/server/RTNet_Server.app/Contents/Resources/
 		cp resources/Info.plist bin/server/RTNet_Server.app/Contents/Info.plist
 		cp resources/icon.icns bin/server/RTNet_Server.app/Contents/Resources/icon.icns
