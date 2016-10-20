@@ -17,25 +17,31 @@ namespace RTNet
 		unsigned short expected;
 		map<int, vector<rt_byte>> bytes;
 
-		void get_final_buffer(rt_byte* output)
+		void get_final_buffer(rt_byte** output, unsigned int* size)
 		{
 			if(bytes.empty())
 			{
-				output = nullptr;
+				*output = nullptr;
+				*size = 0;
 				return;
 			}
-			vector<rt_byte> handled;
-			for(unsigned int i = 0;i < expected;i++)
+			vector<rt_byte>* handled = new vector<rt_byte>();
+			unsigned int i;
+			for(i = 0; i < expected; i++)
 			{
-				if(bytes.find(i) != bytes.end())
-					handled.insert(bytes[i].begin(), bytes[i].end(), bytes[i].begin());
-				else
+				if(bytes.find(i) == bytes.end())
+				{
+					LogDebug("[WARNING] Couldn't find %d", i);
 					break;
+				}
+				handled->reserve(bytes[i].size());
+				handled->insert(handled->end(), bytes[i].begin(), bytes[i].end());
 			}
-			if(bytes.size() != expected)
-				LogWarning("Didn't get the expected amount of packets! (%d)", packet_id);
+			if(i != expected)
+				LogWarning("Didn't get the expected amount of packets! Expected %d but got %d", expected, i);
 			bytes.clear();
-			output = handled.data();
+			*output = handled->data();
+			*size = handled->size();
 		}
 	};
 }

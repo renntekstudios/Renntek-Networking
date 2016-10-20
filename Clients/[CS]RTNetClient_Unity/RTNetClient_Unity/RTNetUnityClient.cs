@@ -20,7 +20,7 @@ namespace RTNet
 	public class RTNetClient : RTClient
 	{
 		protected override void Log(string message) { Debug.Log("[RTNet][LOG] " + message); }
-		protected override void LogDebug(string message) { Debug.Log("[RTNet][DEBUG] " + message); }
+		protected override void LogDebug(string message) { if(DebugMode) Debug.Log("[RTNet][DEBUG] " + message); }
 		protected override void LogWarning(string message) { Debug.LogWarning("[RTNet][WARNING] " + message); }
 		protected override void LogError(string error) { Debug.LogError("[RTNet][ERROR] " + error); }
 		protected override void LogException(Exception e, string error = "") { Debug.LogError("[RTNet][EXCEPTION] " + e.Message + (string.IsNullOrEmpty(error) ? "\n\t" : error + "\n\t") + e.StackTrace); }
@@ -30,14 +30,24 @@ namespace RTNet
 			switch(packetID)
 			{
 				case (short)UnityPackets.RPC:
-					RTNetView.HandleRPC(RTNetRPC.FromData(data));
+					if (data != null)
+					{
+						string b = "";
+						for (uint i = 0; i < data.Length; i++)
+							b += data[i];
+						// LogDebug("RPC_DATA: " + b);
+						RTNetView.HandleRPC(RTNetRPC.FromData(data));
+					}
+					else
+						LogError("RPC but data was null!");
 					break;
 				case (short)UnityPackets.Instantiate:
 					RTNetView.HandleInstantiationRequest(InstantiateRequest.FromData(data));
 					break;
 				default:
 					handlePacket?.Invoke(packetID, data);
-					LogDebug("Got unhandled packet with ID \"" + packetID + "\"");
+					if(handlePacket == null)
+						LogDebug("Got unhandled packet with ID \"" + packetID + "\"");
 					break;
 			}
 		}
@@ -80,17 +90,20 @@ namespace RTNet
 			}
 		}
 
-		public static RTNetRPC FromData(byte[] data) { return (RTNetRPC)new BinaryFormatter().Deserialize(new MemoryStream(data));	}
+		public static RTNetRPC FromData(byte[] data) { if (data == null) return null; return (RTNetRPC)new BinaryFormatter().Deserialize(new MemoryStream(data));	}
 	}
 
 	public class RTNetView : MonoBehaviour
 	{
-		public static RTNetClient Client { get; private set; }
+		public RTNetClient Client { get; private set; }
 
-		public static short ID { get { return Client != null ? Client.ID : (short)0; } }
-		public static bool Connected { get { return Client != null ? Client.Connected : false; } }
-		public static string Address { get { return Client != null ? Client.Address : string.Empty; } }
-		public static int Port { get { return Client != null ? Client.Port : 0; } }
+		public int Port { get { return Client != null ? Client.Port : 0; } }
+		public short ID { get { return Client != null ? Client.ID : (short)0; } }
+		public bool Connected { get { return Client != null ? Client.Connected : false; } }
+		public bool Timeout { get { return Client.Timeout; } set { Client.Timeout = value; } }
+		public string Address { get { return Client != null ? Client.Address : string.Empty; } }
+		public bool DebugMode { get { return Client.DebugMode; } set { Client.DebugMode = value; } }
+		public int BufferSize { get { return Client.BufferSize; } set { Client.BufferSize = value; } }
 
 		public bool isMine { get { return _ownerID == ID; } }
 		public bool isPlayer;
@@ -131,8 +144,6 @@ namespace RTNet
 			rpc.ViewID = ViewID;
 			rpc.Receiver = receiver;
 
-			rpc.Method = method;
-
 			for(int i = 0; i < args.Length; i++)
 			{
 				if (args[i].GetType().Equals(typeof(Vector2)))
@@ -147,12 +158,22 @@ namespace RTNet
 					args[i] = Vec4.FromColor((Color)args[i]);
 			}
 
+			rpc.Method = method;
 			rpc.Args = args;
 
 			if (Client == null)
 				Debug.LogWarning("Tried sending RPC but no RTNetUnityClient exists");
 			else
-				Client.Send((short)UnityPackets.RPC, rpc.Data);
+			{
+				byte[] rpc_data = rpc.Data;
+
+				string b = "";
+				for (uint i = 0; i < rpc_data.Length; i++)
+					b += rpc_data[i];
+				// Debug.Log("RPC_DATA: " + b);
+
+				Client.Send((short)UnityPackets.RPC, rpc_data);
+			}
 		}
 
 		void LateUpdate()
@@ -247,6 +268,14 @@ namespace RTNet
 			unhandledRPCs.Add(rpc);
 		}
 
+		public void Connect(string ip, int port, int tcpPort = 0) { Client.Connect(ip, port, tcpPort); }
+		public void Disconnect(bool sendPacket = true) { Client.Disconnect(sendPacket); }
+
+		public int Send(RTPacketID packet) { return Client.Send(packet); }
+		public int Send(short packet) { return Client.Send(packet); }
+		public int Send(RTPacketID packet, byte[] data) { return Client.Send(packet, data); }
+		public int Send(short packet, byte[] data) { return Client.Send(packet, data); }
+
 		public void OnApplicationQuit()
 		{
 			if(Client != null && Connected)
@@ -257,27 +286,27 @@ namespace RTNet
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
-		public static void NetworkInstantiate(string prefabName) { NetworkInstantiate(prefabName, Vector3.zero, new Vector3(1, 1, 1), Quaternion.identity); }
+		public void NetworkInstantiate(string prefabName) { NetworkInstantiate(prefabName, Vector3.zero, new Vector3(1, 1, 1), Quaternion.identity); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
-		public static void NetworkInstantiate(string prefabName, Vector3 position) { NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), Quaternion.identity); }
+		public void NetworkInstantiate(string prefabName, Vector3 position) { NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), Quaternion.identity); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
 		/// <param name="rotation">Rotation of the spawned prefab</param>
-		public static void NetworkInstantiate(string prefabName, Vector3 position, Quaternion rotation) { NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), rotation); }
+		public void NetworkInstantiate(string prefabName, Vector3 position, Quaternion rotation) { NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), rotation); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
 		/// <param name="scale">Scale of the spawned prefab</param>
-		public static void NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale) { NetworkInstantiate(prefabName, position, scale, Quaternion.identity); }
+		public void NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale) { NetworkInstantiate(prefabName, position, scale, Quaternion.identity); }
 
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
@@ -286,7 +315,7 @@ namespace RTNet
 		/// <param name="position">Position to spawn the prefab at</param>
 		/// <param name="scale">Scale of the spawned prefab</param>
 		/// <param name="rotation">Rotation of the spawned prefab</param>
-		public static void NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale, Quaternion rotation)
+		public void NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale, Quaternion rotation)
 		{
 			if(Resources.Load<GameObject>(prefabName) == null)
 			{
@@ -294,8 +323,8 @@ namespace RTNet
 				return;
 			}
 
-			byte[] data = new InstantiateRequest(prefabName, position, scale, rotation).Data;
-			Client.Send((short)UnityPackets.Instantiate, data);
+			byte[] data = new InstantiateRequest(prefabName, position, scale, rotation, ID).Data;
+			Send((short)UnityPackets.Instantiate, data);
 		}
 
 		internal static void HandleInstantiationRequest(InstantiateRequest request) { instantiationRequests.Add(request); }
@@ -443,10 +472,10 @@ namespace RTNet
 		public Vec3 Scale;
 		public Vec4 Rotation;
 
-		public InstantiateRequest(string prefab) : this(prefab, Vec3.zero, Vec3.zero, Vec4.zero) { }
-		public InstantiateRequest(string prefab, Vec3 position, Vec3 scale, Vec4 rotation)
+		public InstantiateRequest(string prefab, short senderID) : this(prefab, Vec3.zero, Vec3.zero, Vec4.zero, senderID) { }
+		public InstantiateRequest(string prefab, Vec3 position, Vec3 scale, Vec4 rotation, short senderID)
 		{
-			this.SenderID = RTNetView.ID;
+			this.SenderID = senderID;
 			this.Prefab = prefab;
 			this.Position = position;
 			this.Scale = scale;

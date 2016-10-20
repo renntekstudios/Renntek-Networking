@@ -3,6 +3,7 @@
 #include <chrono>
 #include <stdio.h>
 #include <algorithm>
+#include <exception>
 #include <sys/time.h>
 #include "rtserver.h"
 #include "settings.h"
@@ -95,10 +96,9 @@ void receive()
 	int receive_length, result;
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
-	rt_byte* temp_data;
+	char buffer[Settings::BufferSize];
 	while(running)
 	{		
-		char buffer[Settings::BufferSize];
 		receive_length = recvfrom(udp_socket, buffer, Settings::BufferSize, 0, (struct sockaddr*)&addr, &addrlen);
 		if(receive_length <= 0)
 			continue;
@@ -109,6 +109,7 @@ void receive()
 			sendto(udp_socket, buffer, receive_length, 0, (struct sockaddr*)&addr, sizeof(addr));
 			continue;
 		}
+		// LogDebug("Got %d bytes", receive_length);
 
 		rt_id client_id = -1;
 		rt_client* client;
@@ -332,86 +333,99 @@ rt_client* get_client(rt_id client_id)
 
 int send(rt_client* client, rt_byte data[], size_t length)
 {
-	size_t data_length = length;
-	if(client == nullptr)
+	try
 	{
-		LogWarning("Could not send data to client - client is null");
-		return -2;
-	}
-	sockaddr_in sock_addr = client->sock_addr;
-	socklen_t socket_length = sizeof(sock_addr);
-	
-	vector<rt_byte> tosend;
-	rt_packet_id packet_id = GetPacketID();
-	unsigned int index = 0;
-	sent_packet_ids.push_back(packet_id);
-
-	char* address = inet_ntoa(sock_addr.sin_addr);
-	unsigned short port = ntohs(sock_addr.sin_port);
-
-	vector<rt_byte> temp(4);
-	if(data_length > Settings::BufferSize - 12)
-	{
-		while(data_length > Settings::BufferSize - 12)
+		size_t data_length = length;
+		if(client == nullptr)
 		{
+			LogWarning("Could not send data to client - client is null");
+			return -2;
+		}
+		sockaddr_in sock_addr = client->sock_addr;
+		socklen_t socket_length = sizeof(sock_addr);
+		
+		vector<rt_byte> tosend;
+		rt_packet_id packet_id = GetPacketID();
+		unsigned int index = 0;
+		sent_packet_ids.push_back(packet_id);
+
+		char* address = inet_ntoa(sock_addr.sin_addr);
+		unsigned short port = ntohs(sock_addr.sin_port);
+
+		vector<rt_byte> temp;
+		if(data_length > Settings::BufferSize - PACKET_SIZE)
+		{
+			while(data_length > Settings::BufferSize - PACKET_SIZE)
+			{
+				for(int i = 0;i < 3;i++)
+				{
+					switch(i)
+					{
+					case 0: temp = short_to_bytes(-1); break;
+					case 1: temp = short_to_bytes(packet_id); break;
+					case 2: temp = short_to_bytes(index++); break;
+					default: LogError("SEND - Shouldn't be here"); break;
+					}
+					tosend.insert(tosend.end(), temp.begin(), temp.end());
+				}
+				tosend.insert(tosend.end(), data, data + Settings::BufferSize - PACKET_SIZE);
+				
+				if(sendto(udp_socket, tosend.data(), tosend.size(), 0, (struct sockaddr*)&sock_addr, socket_length) == -1)
+					LogWarning("Could not send data (%d bytes)", tosend.size());
+				// else
+				//	LogDebug("Sent %d bytes", tosend.size());
+
+				data_length -= Settings::BufferSize - PACKET_SIZE;
+				rt_byte* temp_data = new rt_byte[data_length];
+				memcpy(temp_data, data, sizeof(rt_byte) * data_length);
+				data = temp_data;
+				delete[] temp_data;
+				tosend.clear();
+			}
 			for(int i = 0;i < 3;i++)
 			{
 				switch(i)
 				{
-				case 0: temp = short_to_bytes(-1); break;
+				case 0: temp = short_to_bytes(-2); break;
 				case 1: temp = short_to_bytes(packet_id); break;
 				case 2: temp = short_to_bytes(index++); break;
 				default: LogError("SEND - Shouldn't be here"); break;
 				}
 				tosend.insert(tosend.end(), temp.begin(), temp.end());
 			}
-			tosend.insert(tosend.end(), data, data + Settings::BufferSize - 12);
-			
-			if(sendto(udp_socket, tosend.data(), tosend.size(), 0, (struct sockaddr*)&sock_addr, socket_length) == -1)
-				LogWarning("Could not send data (%d bytes)", tosend.size());
-
-			data_length -= Settings::BufferSize - 12;
-			rt_byte* temp_data = new rt_byte[data_length];
-			memcpy(temp_data, data, sizeof(rt_byte) * data_length);
-			data = temp_data;
-			delete[] temp_data;
+			tosend.insert(tosend.end(), data, data + data_length);
 		}
-		for(int i = 0;i < 3;i++)
+		else
 		{
-			switch(i)
+			for(int i = 0;i < 3;i++)
 			{
-			case 0: temp = short_to_bytes(-2); break;
-			case 1: temp = short_to_bytes(packet_id); break;
-			case 2: temp = short_to_bytes(++index); break;
-			default: LogError("SEND - Shouldn't be here"); break;
+				switch(i)
+				{
+				case 0: temp = short_to_bytes(-3); break;
+				case 1: temp = short_to_bytes(packet_id); break;
+				case 2: temp = short_to_bytes(++index); break;
+				default: LogError("SEND - Shouldn't be here"); break;
+				}
+				tosend.insert(tosend.end(), temp.begin(), temp.end());
 			}
-			tosend.insert(tosend.end(), temp.begin(), temp.end());
+			tosend.insert(tosend.end(), data, data + data_length);
 		}
-		tosend.insert(tosend.end(), data, data + data_length);
+
+		int result = 0;
+		if((result = sendto(udp_socket, tosend.data(), tosend.size(), 0, (struct sockaddr*)&sock_addr, socket_length)) <= 0)
+			LogWarning("Could not send data (%d bytes)", tosend.size());
+		else
+		{
+			result = 0;
+			// LogDebug("Sent %d bytes", tosend.size());
+		}
+		sent_packet_ids.erase(remove(sent_packet_ids.begin(), sent_packet_ids.end(), packet_id), sent_packet_ids.end());
+		return result;
 	}
-	else
+	catch(exception e)
 	{
-		for(int i = 0;i < 3;i++)
-		{
-			switch(i)
-			{
-			case 0: temp = short_to_bytes(-3); break;
-			case 1: temp = short_to_bytes(packet_id); break;
-			case 2: temp = short_to_bytes(++index); break;
-			default: LogError("SEND - Shouldn't be here"); break;
-			}
-			tosend.insert(tosend.end(), temp.begin(), temp.end());
-		}
-		tosend.insert(tosend.end(), data, data + data_length);
+		LogError("Couldn't send data to (%d) - %s", client->id, e.what());
 	}
-
-	int result = 0;
-	if((result = sendto(udp_socket, tosend.data(), tosend.size(), 0, (struct sockaddr*)&sock_addr, socket_length)) <= 0)
-		LogWarning("Could not send data (%d bytes)", tosend.size());
-	else
-		result = 0;
-	LogDebug("Sent %d bytes", tosend.size());
-	return result;
 }
 
 int send_raw(rt_client* client, rt_byte data[], size_t length)
@@ -489,7 +503,7 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	// LogDebug("STATUS: %d; INTERNAL_ID: %d; INDEX: %d", packet_status, packet_internal_id, packet_index);
 
 	unsigned int data_length = length - PACKET_SIZE;
-	rt_byte data[data_length];
+	rt_byte* data = new rt_byte[data_length];
 	vector<rt_byte> v_data(data_length);
 	for(int i = 0;i < data_length;i++)
 		v_data[i] = data[i] = buffer[i + PACKET_SIZE];
@@ -507,16 +521,22 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	{
 		if(index >= 0)
 		{
-			client->unhandled_packets[index]->bytes.emplace(packet_index, v_data);
+			client->unhandled_packets[index]->bytes[packet_index] = v_data; // .insert(client->unhandled_packets[index]->bytes.begin() + (int)packet_index, pair<int, vector<rt_byte>>(packet_index, v_data));
 			if(client->unhandled_packets[index]->expected > 0 && client->unhandled_packets[index]->bytes.size() == client->unhandled_packets[index]->expected)
 			{
-				client->unhandled_packets[index]->get_final_buffer(data);
-				// LogDebug("Got final packet! (%d)", client->unhandled_packets[index]->packet_id);
+				client->unhandled_packets[index]->get_final_buffer(&data, &data_length);
+				if(data == nullptr)
+				{
+					delete[] data;
+					return;
+				}
+				// LogDebug("Got final packet! (%d bytes)", data_length);
 				client->unhandled_packets.erase(client->unhandled_packets.begin() + index);
 			}
 			else
 			{
 				// LogWarning("Don't have all packets, returning");
+				delete[] data;
 				return;
 			}
 		}
@@ -524,8 +544,10 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 		{
 			unhandled_packet_t* packet = new unhandled_packet_t();
 			packet->packet_id = packet_internal_id;
+			packet->bytes[packet_index] = v_data;
 			client->unhandled_packets.push_back(packet);
 			// LogDebug("Added new unhandled packet with ID \"%d\"", packet_internal_id);
+			delete[] data;
 			return;
 		}
 	}
@@ -533,17 +555,23 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	{
 		if(index >= 0)
 		{
-			client->unhandled_packets[index]->bytes.emplace(packet_index, v_data);
-			int expected = client->unhandled_packets[index]->expected = packet_index;
+			client->unhandled_packets[index]->bytes[packet_index] = v_data; // .insert(client->unhandled_packets[index]->bytes.begin() + (int)packet_index, pair<int, vector<rt_byte>>(packet_index, v_data));
+			int expected = client->unhandled_packets[index]->expected = packet_index + 1;
 			if(expected > 0 && client->unhandled_packets[index]->bytes.size() == expected)
 			{
-				client->unhandled_packets[index]->get_final_buffer(data);
-				// LogDebug("Got final packet! (%d)", client->unhandled_packets[index]->packet_id);
+				client->unhandled_packets[index]->get_final_buffer(&data, &data_length);
+				if(data == nullptr)
+				{
+					delete[] data;
+					return;
+				}
+				// LogDebug("Got final packet! (%d bytes)", data_length);
 				client->unhandled_packets.erase(client->unhandled_packets.begin() + index);
 			}
 			else
 			{
 				// LogWarning("Don't have all packets, returning");
+				delete[] data;
 				return;
 			}
 		}
@@ -551,17 +579,19 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 		{
 			unhandled_packet_t* packet = new unhandled_packet_t();
 			packet->packet_id = packet_internal_id;
+			packet->bytes[packet_index] = v_data;
 			client->unhandled_packets.push_back(packet);
 			// LogDebug("Added new unhandled packet with ID \"%d\"", packet_internal_id);
+			delete[] data;
 			return;
 		}
 	}
 
 	short packet_id = bytes_to_short(data);
 	// Log("Got \"%d\" packet from (%d)", packet_id, client->id);
-	delete buffer;
+	delete[] buffer;
 
-	LogDebug("Got packet with ID \"%d\" (%d bytes)", packet_id, data_length);
+	// LogDebug("Got packet with ID \"%d\" (%d bytes)", packet_id, data_length);
 
 	switch((RT_PACKET_ID)packet_id)
 	{
@@ -577,6 +607,7 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 		}
 		break;
 	}
+	delete[] data;
 }
 
 void close_connection(rt_client* client, bool send_packet)

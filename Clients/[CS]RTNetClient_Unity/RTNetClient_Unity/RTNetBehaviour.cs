@@ -19,13 +19,16 @@ namespace RTNet
 		internal RTStream() { objects = new List<object>(); }
 		internal RTStream(object[] o) { objects = new List<object>(o); }
 		internal RTStream(List<object> o) { objects = new List<object>(o); }
+
+		internal void SetReading() { isReading = true; isWriting = false; }
+		internal void SetWriting() { isWriting = true; isReading = false; }
 		
 		public void Write(object o)
 		{
 			if (o.GetType().Equals(typeof(Vector2)))
-				objects.Add((Vec2)o);
+				objects.Add((Vec2)(Vector2)o);
 			else if (o.GetType().Equals(typeof(Vector3)))
-				objects.Add((Vec3)o);
+				objects.Add((Vec3)(Vector3)o);
 			else if (o.GetType().Equals(typeof(Vector4)))
 				objects.Add((Vec4)(Vector4)o);
 			else if (o.GetType().Equals(typeof(Quaternion)))
@@ -62,6 +65,8 @@ namespace RTNet
 
 		internal byte[] GetData()
 		{
+			if (objects.Count == 0)
+				return new byte[0];
 			BinaryFormatter bf = new BinaryFormatter();
 			MemoryStream ms = new MemoryStream();
 
@@ -93,6 +98,7 @@ namespace RTNet
 		{
 			Debug.Log("INTERNAL SYNC THING");
 			RTStream stream = RTStream.GetStream(data);
+			stream.SetReading();
 			OnSerializeView(ref stream);
 		}
 
@@ -101,8 +107,11 @@ namespace RTNet
 			if(isMine)
 			{
 				RTStream stream = new RTStream();
+				stream.SetWriting();
 				OnSerializeView(ref stream);
-				View.RPC("_internal_sync_stream", RTReceiver.Others, stream.GetData());
+				// byte[] data = stream.GetData();
+				if(stream.objects.Count > 0)
+					View.RPC("_internal_sync_stream", RTReceiver.Others, stream.objects);
 			}
 		}
 

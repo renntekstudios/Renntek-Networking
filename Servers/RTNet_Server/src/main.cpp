@@ -41,6 +41,16 @@ int main(int argc, char** argv)
 		transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
 		if(lower == "quit")
 			server->Stop();
+		else if(lower == "clear")
+		{
+			#ifdef _WIN32
+			system("cls");
+			#else
+			cout << "\x1B[2J\x1B[H";
+			#endif
+		}
+		else if(lower == "" || lower == " " || lower == "\n")
+			continue;
 		else
 			Log("\"%s\" is not a valid command", lower.c_str());
 	}

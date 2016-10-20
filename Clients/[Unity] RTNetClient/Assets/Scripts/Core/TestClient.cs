@@ -9,6 +9,7 @@ public class TestClient : MonoBehaviour
 {
 	public string ip = "127.0.0.1";
 	public int port = 4434;
+	public int bufferSize = 512;
 
 	public bool showGUI = true;
 
@@ -22,7 +23,8 @@ public class TestClient : MonoBehaviour
 
 	void Start()
 	{
-		RTNetView.Client.Connect(ip, port);
+		GetComponent<RTNetView>().BufferSize = bufferSize;
+		GetComponent<RTNetView>().Connect(ip, port);
 	}
 
     void ShowMessage(string message)
@@ -34,11 +36,11 @@ public class TestClient : MonoBehaviour
 	Vector2 scroll;
     void OnGUI()
     {
-		GUI.Box(new Rect(Screen.width - 140, 10, 130, 25), RTNetView.Client.Connected ? "<color=green>Connected</color>" : "<color=red>Disconnected</color>");
-        if(showGUI && RTNetView.Client.Connected)
+		GUI.Box(new Rect(Screen.width - 140, 10, 130, 25), GetComponent<RTNetView>().Connected ? "<color=green>Connected</color>" : "<color=red>Disconnected</color>");
+        if(showGUI && GetComponent<RTNetView>().Connected)
         {
 			if(GUILayout.Button("Instantiate"))
-				RTNetView.NetworkInstantiate("Rectangle Thingy");
+				GetComponent<RTNetView>().NetworkInstantiate("Rectangle Thingy");
 
             myMessage = GUILayout.TextField(myMessage);
             if (GUILayout.Button("Send", GUILayout.Width(Screen.width / 6)))

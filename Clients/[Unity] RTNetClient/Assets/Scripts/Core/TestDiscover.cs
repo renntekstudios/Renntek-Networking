@@ -15,7 +15,7 @@ public class TestDiscover : MonoBehaviour
 
 	void OnGUI()
 	{
-		GUILayout.Box(RTNetView.Connected ? "<color=green>Connected!</color>" : "<color=red>Disconnected</color>");
+		GUILayout.Box(GetComponent<RTNetView>().Connected ? "<color=green>Connected!</color>" : "<color=red>Disconnected</color>");
 		if (GUILayout.Button("Refresh"))
 			info = GetComponent<RTNetView>().GetLocalServers();
 		if (info == null)
@@ -23,10 +23,10 @@ public class TestDiscover : MonoBehaviour
 		else
 		{
 			if (GUILayout.Button("Connect"))
-				RTNetView.Client.Connect(info.IP, info.Port);
+				GetComponent<RTNetView>().Connect(info.IP, info.Port);
 		}
-		if(RTNetView.Connected)
+		if(GetComponent<RTNetView>().Connected)
 			if (GUILayout.Button("Disconnect"))
-				RTNetView.Client.Disconnect();
+				GetComponent<RTNetView>().Disconnect();
 	}
 }

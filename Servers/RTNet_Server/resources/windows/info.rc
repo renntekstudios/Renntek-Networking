@@ -1,0 +1,25 @@
+id ICON "resources/windows/icon.ico"
+1 VERSIONINFO
+FILEVERSION		0,0,0,1
+PRODUCTVERSION	0,0,0,1
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "080904E4"
+		BEGIN
+			VALUE "CompanyName", "RennTek Studios ©"
+			VALUE "FileDescription", "RennTek Network Server"
+			VALUE "FileVersion", "0.1"
+			VALUE "InternalName", "RTNetServer"
+			VALUE "LegalCopyright", "RennTek Studios ©"
+			VALUE "OriginalFilename", "RTNetServer.exe"
+			VALUE "ProductName", "RTNet Server"
+			VALUE "ProductVersion", "0.1"
+		END
+	END
+
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x809, 1252
+	END
+END

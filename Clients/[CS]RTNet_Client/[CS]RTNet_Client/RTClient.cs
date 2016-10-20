@@ -23,16 +23,18 @@ namespace RTNet
 
 	public class RTClient
 	{
+		private static Type classType;
 		private enum RTClientSignatures : byte { Server = 99, CSharp = 1 }
 
 		private const int ReceiveTimeout = 30000;
 		private int bufferSize = 512;
-		internal protected int BufferSize { get { return bufferSize; } set { if (Connected) bufferSize = value; else LogWarning("Cannot change buffer size while connected to server!"); } }
+		public int BufferSize { get { return bufferSize; } set { if (!Connected) bufferSize = value; else LogWarning("Cannot change buffer size while connected to server!"); } }
 
 		private bool timeout;
 		public bool Timeout { get { return timeout; } set { if (Status != RTConnectionStatus.Disconnected) return; else timeout = value; } }
 		public string Address { get { return EndPoint == null ? "" : ((IPEndPoint)EndPoint).Address.ToString(); } }
 		public int Port { get { return EndPoint == null ? 0 : ((IPEndPoint)EndPoint).Port; } }
+		public bool DebugMode { get; set; }
 		
 		public short ID { get; private set; }
 		public RTConnectionStatus Status { get; private set; }
@@ -43,7 +45,8 @@ namespace RTNet
 		private EndPoint _endpoint;
 		private EndPoint EndPoint { get { return _endpoint; } }
 
-		private Thread receiveThread;
+		private byte[] _buffer;
+		// private Thread receiveThread;
 		private List<short> internalIDs = new List<short>();
 
 		private List<RTServerInfo> servers = new List<RTServerInfo>();
@@ -51,11 +54,13 @@ namespace RTNet
 		public RTClient()
 		{
 			Status = RTConnectionStatus.Disconnected;
+			classType = this.GetType();
 		}
 
 		public RTClient(string ip, int port)
 		{
 			Status = RTConnectionStatus.Disconnected;
+			classType = this.GetType();
 			Connect(ip, port);
 		}
 
@@ -82,8 +87,7 @@ namespace RTNet
 
 			byte[] signature = { 17, 19, (byte)RTClientSignatures.CSharp };
 			Socket.SendTo(signature, EndPoint);
-			receiveThread = new Thread(Receive);
-			receiveThread.Start();
+			BeginReceive();
 		}
 
 		public void Disconnect(bool sendPacket = true)
@@ -98,61 +102,143 @@ namespace RTNet
 			Log("Disconnected from server");
 		}
 
-		private void Receive()
+		private Dictionary<short, UnhandledPacket> unhandledPackets = new Dictionary<short, UnhandledPacket>();
+		private byte[] SortData(byte[] buffer, int bytesRead)
 		{
-			try
-			{
-				while(Connected)
-				{
-					byte[] buffer = new byte[BufferSize];
-					int bytesRead = Socket.ReceiveFrom(buffer, ref _endpoint);
-					if(bytesRead > 0)
-					{
-						if(bytesRead == 3)
-						{
-							if(buffer[0] != (byte)17 || buffer[1] != (byte)19 || buffer[2] != (byte)RTClientSignatures.Server)
-							{
-								LogError("Server has invalid signature!");
-								return;
-							}
-							OnConnected();
-							Log("Connected to server");
-							Status = RTConnectionStatus.Connected;
-							continue;
-						}
+			short packet_status = BitConverter.ToInt16(buffer, 0);
+			short packet_internal_id = BitConverter.ToInt16(buffer, sizeof(short));
+			short packet_index = BitConverter.ToInt16(buffer, sizeof(short) * 2);
 
-						LogDebug("Got \"" + BitConverter.ToInt16(buffer, sizeof(short) * 3) + "\" packet (" + bytesRead + " bytes)");
-						short packetID = BitConverter.ToInt16(buffer, sizeof(short) * 3);
-						buffer = buffer.Skip(sizeof(short) * 4).ToArray();
-						switch((RTPacketID)packetID)
-						{
-							case RTPacketID.Disconnect:
-								Disconnect(false);
-								break;
-							case RTPacketID.Auth:
-								ID = BitConverter.ToInt16(buffer, 0);
-								LogDebug("Got ID \"" + ID + "\"");
-								break;
-							default:
-								HandlePacket(packetID, buffer);
-								break;
-						}
+			// buffer = buffer.Take(bytesRead).Skip(sizeof(short) * 3).ToArray();
+			byte[] data = new byte[bytesRead];
+			for (int i = 0; i < bytesRead; i++)
+				data[i] = buffer[i + sizeof(short) * 3];
+			// LogDebug("STATUS: " + packet_status + "; INTERNAL_ID: " + packet_internal_id + "; INDEX: " + packet_index);
+			
+			if(packet_status == -1)
+			{
+				if(unhandledPackets.ContainsKey(packet_internal_id))
+				{
+					unhandledPackets[packet_internal_id].Bytes.Add(packet_index, data);
+					if (unhandledPackets[packet_internal_id].Expected > 0 && unhandledPackets[packet_internal_id].Bytes.Count == unhandledPackets[packet_internal_id].Expected)
+					{
+						data = unhandledPackets[packet_internal_id].GetFinalBuffer();
+						if (data == null || data.Length == 0)
+							return new byte[0];
+						unhandledPackets.Remove(packet_internal_id);
 					}
 					else
-					{
-						Disconnect();
-						break;
-					}
+						return new byte[0];
 				}
+				else
+				{
+					UnhandledPacket packet = new UnhandledPacket();
+					packet.PacketID = packet_internal_id;
+					packet.Bytes.Add(packet_index, data);
+					unhandledPackets.Add(packet_internal_id, packet);
+					return new byte[0];
+				}
+			}
+			else if(packet_status == -2)
+			{
+				if(unhandledPackets.ContainsKey(packet_internal_id))
+				{
+					unhandledPackets[packet_internal_id].Bytes.Add(packet_index, data);
+					int expected = unhandledPackets[packet_internal_id].Expected = (short)(packet_index + 1);
+					if (expected > 0 && unhandledPackets[packet_internal_id].Bytes.Count == expected)
+					{
+						data = unhandledPackets[packet_internal_id].GetFinalBuffer();
+						if (data == null || data.Length == 0)
+							return new byte[0];
+						unhandledPackets.Remove(packet_internal_id);
+					}
+					else
+						return new byte[0];
+				}
+				else
+				{
+					UnhandledPacket packet = new UnhandledPacket();
+					packet.PacketID = packet_internal_id;
+					packet.Bytes.Add(packet_index, data);
+					unhandledPackets.Add(packet_internal_id, packet);
+					return new byte[0];
+				}
+			}
+			return data;
+		}
+
+		private void BeginReceive()
+		{
+			_buffer = new byte[BufferSize];
+			Socket.BeginReceiveFrom(_buffer, 0, BufferSize, SocketFlags.None, ref _endpoint, Receive, null);
+		}
+
+		private void Receive(IAsyncResult result)
+		{
+			if (!Connected)
+				return;
+			try
+			{
+				int bytesRead = Socket.EndReceiveFrom(result, ref _endpoint);
+				byte[] buffer = _buffer;
+				if (bytesRead > 0)
+				{
+					if (bytesRead == 3)
+					{
+						if (buffer[0] != (byte)17 || buffer[1] != (byte)19 || buffer[2] != (byte)RTClientSignatures.Server)
+						{
+							LogError("Server has invalid signature!");
+							Disconnect();
+							BeginReceive();
+							return;
+						}
+						OnConnected();
+						Log("Connected to server");
+						Status = RTConnectionStatus.Connected;
+						BeginReceive();
+						return;
+					}
+
+					// LogDebug("Got " + bytesRead + " bytes");
+
+					buffer = SortData(buffer, bytesRead);
+					if (buffer.Length == 0)
+					{
+						BeginReceive();
+						return;
+					}
+
+					short packetID = BitConverter.ToInt16(buffer, 0);
+					// LogDebug("Got \"" + packetID + "\" packet (" + buffer.Length + " bytes)");
+					buffer = buffer.Skip(sizeof(short)).ToArray();
+					switch ((RTPacketID)packetID)
+					{
+						case RTPacketID.Disconnect:
+							Disconnect(false);
+							break;
+						case RTPacketID.Auth:
+							ID = BitConverter.ToInt16(buffer, 0);
+							_internal_debug("Got ID \"" + ID + "\"");
+							break;
+						default:
+							HandlePacket(packetID, buffer);
+							break;
+					}
+				} 
+				else
+					Disconnect();
 			}
 			catch(Exception e)
 			{
 				if (!Timeout && e.Message.Contains("A blocking operation"))
+				{
+					BeginReceive();
 					return;
-				// LogException(e, "Could not receive from server");
-				LogError("Could not receive from server - " + e.Message);
-				Disconnect();
+				}
+				LogError("Could not receive from server, \"" + e.GetType().Name + "\" exception - " + e.Message + "\n\t" + e.StackTrace);
+				// Disconnect();
 			}
+			BeginReceive();
 		}
 
 		private short GetInternalPacketID()
@@ -191,25 +277,26 @@ namespace RTNet
 				return -1;
 			}
 			short internalPacketID = GetInternalPacketID(), index = 0;
-			List<byte> toSend = BitConverter.GetBytes((short)packetID).ToList();
+			List<byte> toSend = BitConverter.GetBytes(packetID).ToList();
 			toSend.AddRange(buffer);
 			buffer = toSend.ToArray();
 			toSend.Clear();
 
 			int packetSize = sizeof(short) * 3;
-			while (buffer.Length > BufferSize - packetSize)
+			if (buffer.Length > BufferSize - packetSize)
 			{
-				toSend.AddRange(BitConverter.GetBytes((short)-1));
-				toSend.AddRange(BitConverter.GetBytes(internalPacketID));
-				toSend.AddRange(BitConverter.GetBytes(index++));
-				toSend.AddRange(buffer.Take(BufferSize - packetSize));
+				while (buffer.Length > BufferSize - packetSize)
+				{
+					toSend.AddRange(BitConverter.GetBytes((short)-1));
+					toSend.AddRange(BitConverter.GetBytes(internalPacketID));
+					toSend.AddRange(BitConverter.GetBytes(index++));
+					toSend.AddRange(buffer.Take(BufferSize - packetSize));
 
-				Socket.SendTo(toSend.ToArray(), EndPoint);
-				toSend.Clear();
-				buffer = buffer.Skip(BufferSize - packetSize).ToArray();
-			}
-			if(index > 0)
-			{
+					Socket.SendTo(toSend.ToArray(), EndPoint);
+					// LogDebug("Sent " + toSend.Count + " bytes");
+					toSend.Clear();
+					buffer = buffer.Skip(BufferSize - packetSize).ToArray();
+				}
 				toSend.AddRange(BitConverter.GetBytes((short)-2));
 				toSend.AddRange(BitConverter.GetBytes(internalPacketID));
 				toSend.AddRange(BitConverter.GetBytes(index++));
@@ -219,12 +306,13 @@ namespace RTNet
 			{
 				toSend.AddRange(BitConverter.GetBytes((short)-3));
 				toSend.AddRange(BitConverter.GetBytes(internalPacketID));
-				toSend.AddRange(BitConverter.GetBytes(index++));
+				toSend.AddRange(BitConverter.GetBytes(index));
 				toSend.AddRange(buffer);
 			}
 
 			int result = Socket.SendTo(toSend.ToArray(), EndPoint);
 			internalIDs.Remove(internalPacketID);
+			// LogDebug("Sent " + toSend.Count + " bytes");
 			return result;
 		}
 
@@ -261,10 +349,17 @@ namespace RTNet
 
 		#region Logging
 		internal protected virtual void Log(string message) { }
+		internal void _internal_debug(string message) { if (DebugMode) LogDebug(message); }
 		internal protected virtual void LogDebug(string message) { }
 		internal protected virtual void LogWarning(string message) { }
 		internal protected virtual void LogError(string error) { }
 		internal protected virtual void LogException(Exception e, string error = "") { }
+
+		internal static void Debug(string msg)
+		{
+			RTClient c = (RTClient)Activator.CreateInstance(classType);
+			c._internal_debug(msg);
+		}
 		#endregion
 	}
 
