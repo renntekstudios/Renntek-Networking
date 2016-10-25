@@ -9,8 +9,8 @@ The RennTek Network is a cross platform network API meant to be an easy-to-use s
 ## How to use RennTek Networking
 ### The server...
 All RennTek Networking servers are hosted by RennTek themselves,
-   if you want to host yourself contact us and provide enough
-   details about why you can't use our services
+   if you want to host one yourself contact us and provide a thorough description
+   as to why we can trust you, along with any relevant proof or projects
    
 ### The client...
 #### C&#35;
@@ -20,28 +20,20 @@ The client namespace is entirely within RTNet, which means you'll
 In the simplest form, a client could be made of
 ```cs
 using RTNet;
+using System;
 
 static void Main(string[] args)
 {
-   RTClient client = new RTClient("127.0.0.1", 4434);
+   RTClient client = new RTClient("127.0.0.1", 4434); // Connect to 127.0.0.1:4434
    while(client.isConnected)
-      System.Threading.Thread.Sleep(10); // let the console sleep, the client is in another thread
-   // Get rid of any resources the client is using
-   client.Dispose();
+   {
+     string line = Console.ReadLine();
+     if(line.ToLower() == "quit")
+       break;
+   }
+   client.Dispose(); //Get rid of any resources the client is using
 }
 ```
 
 
 ####RennTek Studios™ (2014-2016)
-
-
-###Installation of server###
-Firstly download https://mega.nz/#!0N8AUb7b!qjQm9geBnmeN4RnQ2SpeW5OQP1u920Sjdu6M7sCyFkg and put it in your RT_Server directory
-
-Now
-
-Just Run the "Automatically Install Binarys.bat"
-
-It will do all the work for you
-if you don't have winrar use 7s
-winrar "http://rarlab.com/"
