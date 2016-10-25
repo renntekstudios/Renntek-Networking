@@ -193,8 +193,7 @@ namespace RTNet
 							return;
 						}
 						OnConnected();
-						Log("Connected to server");
-						Status = RTConnectionStatus.Connected;
+						Status = RTConnectionStatus.Connecting;
 						BeginReceive();
 						return;
 					}
@@ -218,7 +217,8 @@ namespace RTNet
 							break;
 						case RTPacketID.Auth:
 							ID = BitConverter.ToInt16(buffer, 0);
-							_internal_debug("Got ID \"" + ID + "\"");
+							Status = RTConnectionStatus.Connected;
+							Log("Connected to server (ID: " + ID + ")");
 							break;
 						default:
 							HandlePacket(packetID, buffer);

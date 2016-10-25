@@ -7,9 +7,14 @@ public class TestSerialize : RTNetBehaviour
 	public Vector3 _position = Vector3.zero;
 	public Quaternion _rotation = Quaternion.identity;
 
+	void Start()
+	{
+		sendRate = 30;
+	}
+
 	protected override void OnSerializeView(ref RTStream stream)
 	{
-		Debug.Log("OnSerializeView (" + (stream.isReading ? "Reading" : "Writing") + ")");
+		// Debug.Log("OnSerializeView (" + (stream.isReading ? "Reading" : "Writing") + ")");
 		if(stream.isWriting)
 		{
 			if (transform.position != _position || transform.rotation != _rotation)

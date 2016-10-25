@@ -50,7 +50,15 @@ namespace RTNet
 		{
 			if (index >= objects.Count)
 				return default(T);
-			return (T)objects[index];
+			try
+			{
+				return (T)objects[index++];
+			}
+			catch(Exception e)
+			{
+				Debug.LogError("[RTNet][ERROR] Could not Read as type \"" + typeof(T).Name + "\" because type is actually \"" + objects[index].GetType().Name + "\" \n\t" + e.Message);
+				return default(T);
+			}
 		}
 
 		public object ReadAt(int i)
@@ -77,24 +85,54 @@ namespace RTNet
 			return buffer;
 		}
 
-		internal static RTStream GetStream(byte[] data) { return new RTStream((List<object>)new BinaryFormatter().Deserialize(new MemoryStream(data))); }
+		internal static RTStream GetStream(byte[] data)
+		{
+			RTStream stream = new RTStream((List<object>)new BinaryFormatter().Deserialize(new MemoryStream(data)));
+			for(int i = 0; i < stream.objects.Count; i++)
+			{
+				if (stream.objects[i].GetType().Equals(typeof(Vec2)))
+					stream.objects[i] = (Vector2)(Vec2)stream.objects[i];
+				else if (stream.objects[i].GetType().Equals(typeof(Vec3)))
+					stream.objects[i] = (Vector3)(Vec3)stream.objects[i];
+				else if (stream.objects[i].GetType().Equals(typeof(Vec4)))
+				{
+					switch(((Vec4)stream.objects[i]).Type)
+					{
+						default:
+						case Vec4.Vec4Type.Normal: stream.objects[i] = (Vector4)(Vec4)stream.objects[i]; break;
+						case Vec4.Vec4Type.Color: stream.objects[i] = (Color)(Vec4)stream.objects[i]; break;
+						case Vec4.Vec4Type.Quaternion: stream.objects[i] = (Quaternion)(Vec4)stream.objects[i]; break;
+					}
+				}
+			}
+			return stream;
+		}
 	}
 
 	[RequireComponent(typeof(RTNetView))]
 	public class RTNetBehaviour : MonoBehaviour
 	{
 		private RTNetView View { get { return GetComponent<RTNetView>(); } }
+		private List<short> indexes = new List<short>();
+		internal short index = 0;
 
 		public bool isMine { get { return View.isMine; } }
 		public bool isPlayer { get { return View.isPlayer; } set { View.isPlayer = value; } }
+
+		[Tooltip("in Hz")]
+		public float sendRate = 60; // Hz
 
 		internal void Init()
 		{
 			RTNetClient.onConnected += OnConnected;
 			RTNetClient.onDisconnected += OnDisconnected;
+			while (indexes.Contains(index++)) ;
+			indexes.Add(index);
+
+			StartCoroutine(CheckStream());
 		}
 
-		void _internal_sync_stream(byte[] data)
+		internal void _internal_sync_stream(byte[] data)
 		{
 			Debug.Log("INTERNAL SYNC THING");
 			RTStream stream = RTStream.GetStream(data);
@@ -102,16 +140,19 @@ namespace RTNet
 			OnSerializeView(ref stream);
 		}
 
-		void Update()
+		System.Collections.IEnumerator CheckStream()
 		{
-			if(isMine)
+			while (RTNetView.Client.Connected)
 			{
-				RTStream stream = new RTStream();
-				stream.SetWriting();
-				OnSerializeView(ref stream);
-				// byte[] data = stream.GetData();
-				if(stream.objects.Count > 0)
-					View.RPC("_internal_sync_stream", RTReceiver.Others, stream.objects);
+				if (isMine)
+				{
+					RTStream stream = new RTStream();
+					stream.SetWriting();
+					OnSerializeView(ref stream);
+					if (stream.objects.Count > 0)
+						View.SendStream(ref stream, index);
+				}
+				yield return new WaitForSeconds(1f / sendRate);
 			}
 		}
 

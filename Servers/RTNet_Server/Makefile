@@ -27,19 +27,22 @@ endif
 
 all: directories $(DEPS)
 ifeq '$(OS)' 'Windows_NT'
-	$(CC) -o bin/server/RTNet_Server.exe $(DEPS) $(CFLAGS_EXEC) -l ws2_32 -static-libgcc -static-libstdc++
+	windres resources/windows/info.rc -O coff -o bin/obj/info.res
+	$(CC) -o bin/server/RTNetServer.exe $(DEPS) $(CFLAGS_EXEC) -l ws2_32 -static-libgcc -static-libstdc++ bin/obj/info.res
 else
 ifeq '$(UNAME_S)' 'Linux'
-		$(CC) -o bin/server/RTNet_Server $(DEPS) $(CFLAGS_EXEC) -pthread
-		chmod a+x bin/server/RTNet_Server
+		$(CC) -o bin/server/RTNetServer $(DEPS) $(CFLAGS_EXEC) -pthread
+		chmod 777 bin/server/RTNetServer
 endif
 ifeq '$(UNAME_S)' 'Darwin'
-		mkdir -p bin/server/RTNet_Server.app/MacOS/
-		mkdir -p bin/server/RTNet_Server.app/Contents/Resources/
-		$(CC) -o bin/server/RTNet_Server.app/MacOS/RTNet_Server $(DEPS) $(CFLAGS_EXEC)
-		chmod a+x bin/server/RTNet_Server.app
-		cp resources/mac/Info.plist bin/server/RTNet_Server.app/Contents/Info.plist
-		cp resources/mac/icon.icns bin/server/RTNet_Server.app/Contents/Resources/icon.icns
+		mkdir -p bin/server/RTNetServer.app/MacOS/
+		$(CC) -o bin/server/RTNetServer.app/MacOS/RTNetServer $(DEPS) $(CFLAGS_EXEC)
+		mkdir -p bin/server/RTNetServer.app/Contents/Resources/
+		cp resources/mac/start_server.sh bin/server/RTNetServer.app/MacOS/start.sh
+		cp resources/mac/Info.plist bin/server/RTNetServer.app/Contents/Info.plist
+		cp resources/mac/icon.icns bin/server/RTNetServer.app/Contents/Resources/icon.icns
+		chmod a+x bin/server/RTNetServer.app
+		chmod +x bin/server/RTNetServer.app/MacOS/start.sh
 endif
 endif
 

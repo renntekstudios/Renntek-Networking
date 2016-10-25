@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Threading;
+using System.Linq;
 using UnityEngine;
 using System.Reflection;
 using System.Collections.Generic;
@@ -43,6 +44,9 @@ namespace RTNet
 					break;
 				case (short)UnityPackets.Instantiate:
 					RTNetView.HandleInstantiationRequest(InstantiateRequest.FromData(data));
+					break;
+				case (short)UnityPackets.SerializedData:
+					RTNetView.HandleStream(data);
 					break;
 				default:
 					handlePacket?.Invoke(packetID, data);
@@ -95,7 +99,7 @@ namespace RTNet
 
 	public class RTNetView : MonoBehaviour
 	{
-		public RTNetClient Client { get; private set; }
+		public static RTNetClient Client { get; private set; }
 
 		public int Port { get { return Client != null ? Client.Port : 0; } }
 		public short ID { get { return Client != null ? Client.ID : (short)0; } }
@@ -113,10 +117,11 @@ namespace RTNet
 		private short _viewID;
 
 		[SerializeField]
-		public short OwnerID = -99;
-		private short _ownerID = -99;
+		public short OwnerID = 0;
+		private short _ownerID = 0;
 
 		private static List<short> viewIDs = new List<short>();
+		private static List<byte[]> streams = new List<byte[]>();
 		private static List<RTNetRPC> unhandledRPCs = new List<RTNetRPC>();
 		private static List<InstantiateRequest> instantiationRequests = new List<InstantiateRequest>();
 
@@ -132,10 +137,12 @@ namespace RTNet
 				_ownerID = ID;
 			OwnerID = _ownerID;
 
-			if (GetComponent<RTNetBehaviour>())
-				GetComponent<RTNetBehaviour>().Init();
+			foreach(RTNetBehaviour b in GetComponents<RTNetBehaviour>())
+				b.Init();
 		}
 
+		public void RPC(string method, RTReceiver receiver) { RPC(method, (short)receiver, new object[0]); }
+		public void RPC(string method, short receiver) { RPC(method, receiver, new object[0]); }
 		public void RPC(string method, RTReceiver receiver, params object[] args) { RPC(method, (short)receiver, args); }
 		public void RPC(string method, short receiver, params object[] args)
 		{
@@ -153,9 +160,9 @@ namespace RTNet
 				else if (args[i].GetType().Equals(typeof(Vector4)))
 					args[i] = (Vec4)(Vector4)args[i];
 				else if (args[i].GetType().Equals(typeof(Quaternion)))
-					args[i] = Vec4.FromQuaternion((Quaternion)args[i]);
+					args[i] = (Vec4)(Quaternion)args[i];
 				else if (args[i].GetType().Equals(typeof(Color)))
-					args[i] = Vec4.FromColor((Color)args[i]);
+					args[i] = (Vec4)(Color)args[i];
 			}
 
 			rpc.Method = method;
@@ -176,49 +183,66 @@ namespace RTNet
 			}
 		}
 
-		void LateUpdate()
+		internal void SendStream(ref RTStream stream, short index)
+		{
+			List<byte> toSend = new List<byte>();
+			toSend.AddRange(BitConverter.GetBytes(ViewID));
+			toSend.AddRange(BitConverter.GetBytes(index));
+			toSend.AddRange(BitConverter.GetBytes(ID));
+			toSend.AddRange(stream.GetData());
+			Client.Send((short)UnityPackets.SerializedData, toSend.ToArray());
+		}
+
+		void Update()
 		{
 			#region Handle RPCs
 			MonoBehaviour[] behaviours = gameObject.GetComponents<MonoBehaviour>();
 			bool found = false;
 			for (int i = 0; i < unhandledRPCs.Count; i++)
 			{
-				if (unhandledRPCs[i].ViewID == this.ViewID && ((unhandledRPCs[i].Receiver == (short)RTReceiver.Others && unhandledRPCs[i].SenderID != ID) || unhandledRPCs[i].Receiver == ID || unhandledRPCs[i].Receiver == (short)RTReceiver.All))
+				if (unhandledRPCs[i].ViewID != ViewID)
+					continue;
+				switch (unhandledRPCs[i].Receiver)
 				{
-					if (unhandledRPCs[i].Receiver == (short)RTReceiver.All || (unhandledRPCs[i].Receiver == (short)RTReceiver.Others && unhandledRPCs[i].SenderID != Client.ID) || unhandledRPCs[i].ViewID == Client.ID)
+					case (short)RTReceiver.All:
+					default:
+						break;
+					case (short)RTReceiver.Others:
+						if (unhandledRPCs[i].SenderID == Client.ID)
+							continue;
+						break;
+				}
+
+				foreach (MonoBehaviour b in behaviours)
+				{
+					if (found)
+						break;
+					foreach (MethodInfo method in b.GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
 					{
-						foreach (MonoBehaviour b in behaviours)
+						if (method.Name.ToLower().Equals(unhandledRPCs[i].Method.ToLower()))
 						{
-							if (found)
-								break;
-							foreach (MethodInfo method in b.GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
+							try
 							{
-								if (method.Name.ToLower().Equals(unhandledRPCs[i].Method.ToLower()))
-								{
-									try
-									{
-										method.Invoke(method.IsStatic ? null : b, unhandledRPCs[i].Args);
-									}
-									catch(Exception e)
-									{
-										string m = method.Name + "(";
-										for (int a = 0; a < unhandledRPCs[i].Args.Length; a++)
-											m += unhandledRPCs[i].Args[a].GetType().Name + (a < unhandledRPCs[i].Args.Length - 1 ? ", " : "");
-										m += ")";
-										Debug.LogWarning("[RTNet][WARNING] Could not invoke \"" + m + "\" - " + e.Message);
-									}
-									found = true;
-									break;
-								}
+								method.Invoke(method.IsStatic ? null : b, unhandledRPCs[i].Args);
 							}
+							catch (Exception e)
+							{
+								string m = method.Name + "(";
+								for (int a = 0; a < unhandledRPCs[i].Args.Length; a++)
+									m += unhandledRPCs[i].Args[a].GetType().Name + (a < unhandledRPCs[i].Args.Length - 1 ? ", " : "");
+								m += ")";
+								Debug.LogWarning("[RTNet][WARNING] Could not invoke \"" + m + "\" - " + e.Message);
+							}
+							found = true;
+							break;
 						}
 					}
 				}
 				if (found)
-				{
-					unhandledRPCs.RemoveAt(i);
 					found = false;
-				}
+				else
+					Debug.LogWarning("[RTNet][WARNING] Could not find RPC method \"" + unhandledRPCs[i].Method + "\"");
+				unhandledRPCs.RemoveAt(i);
 			}
 			#endregion
 			#region Handle Instantiation Requests
@@ -238,11 +262,43 @@ namespace RTNet
 				if(instantiationRequests[i].Scale != new Vector3(1, 1, 1))
 					instantiated.transform.localScale = instantiationRequests[i].Scale;
 				if (instantiated.GetComponent<RTNetView>())
-					instantiated.GetComponent<RTNetView>()._ownerID = instantiationRequests[i].SenderID;
+					instantiated.GetComponent<RTNetView>().OwnerID = instantiated.GetComponent<RTNetView>()._ownerID = instantiationRequests[i].SenderID;
 				instantiationRequests.RemoveAt(i);
 			}
 			#endregion
-			
+			#region Handle Streams
+			/*
+			 * ViewID
+			 * ClientID
+			 * BehaviourIndex
+			 * Stream_data
+			*/
+			RTNetBehaviour[] netBehaviours = gameObject.GetComponents<RTNetBehaviour>();
+			found = false;
+			short viewID, clientID, behaviourIndex;
+			for(int i = 0; i < streams.Count; i++)
+			{
+				viewID = BitConverter.ToInt16(streams[i], 0);
+				behaviourIndex = BitConverter.ToInt16(streams[i], sizeof(short));
+				clientID = BitConverter.ToInt16(streams[i], sizeof(short) * 2);
+				if (viewID != ViewID || clientID == ID)
+					continue;
+				foreach(RTNetBehaviour r in netBehaviours)
+				{
+					if (found)
+						break;
+					if (behaviourIndex != r.index)
+						continue;
+					r._internal_sync_stream(streams[i].Skip(sizeof(short) * 3).ToArray());
+					found = true;
+				}
+				if (found)
+					found = false;
+				else
+					Debug.LogWarning("[RTNet][WARNING] Could not find RTNetBehaviour with internal index '" + behaviourIndex + "'");
+				streams.RemoveAt(i);
+			}
+			#endregion
 			if (ViewID != _viewID)
 				ViewID = _viewID;
 		}
@@ -265,8 +321,10 @@ namespace RTNet
 						rpc.Args[i] = (Vector4)(Vec4)rpc.Args[i];
 				}
 			}
+			// Debug.Log("Got RPC \"" + rpc.Method + "\"");
 			unhandledRPCs.Add(rpc);
 		}
+		internal static void HandleStream(byte[] data) { streams.Add(data); }
 
 		public void Connect(string ip, int port, int tcpPort = 0) { Client.Connect(ip, port, tcpPort); }
 		public void Disconnect(bool sendPacket = true) { Client.Disconnect(sendPacket); }

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-		<string>RTNet_Server</string>
+		<string>start.sh</string>
 	<key>CFBundleName</key>
 		<string>RTNet Server</string>
 	<key>CFBundleDisplayName</key>

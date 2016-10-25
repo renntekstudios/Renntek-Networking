@@ -18,8 +18,6 @@ extern T Read(string key, T defaultValue);
 string Replace(const string& original, const char a, const char b);
 
 const string Settings::ResourceDir = "./";
-const string Settings::AccountDir = ResourceDir + "Accounts/";
-
 const string Settings::Version = "0.1";
 
 int Settings::UDPPort = DEFAULT_UDP_PORT;
@@ -28,7 +26,7 @@ int Settings::BufferSize = DEFAULT_BUFFERSIZE;
 bool Settings::DebugMode = false;
 RT_UNKNOWN_BEHAVIOUR Settings::UnknownBehaviour = RT_BEHAVIOUR_ALL;
 
-const vector<string> Settings::importantDirectories = { "Accounts/" };
+const vector<string> Settings::importantDirectories = {  };
 
 bool Settings::_initialized = false;
 GenericReader Settings::_reader;
@@ -64,7 +62,7 @@ bool Settings::Read(string path)
 	TCPPort = _reader.Read("TCP Port", DEFAULT_TCP_PORT);
 	BufferSize = _reader.Read("Buffer Size", 512);
 	DebugMode = _reader.Read("Debug Mode", false);
-	UnknownBehaviour = (RT_UNKNOWN_BEHAVIOUR)_reader.Read("Unknown Behaviour", (int)RT_BEHAVIOUR_OTHERS);
+	UnknownBehaviour = (RT_UNKNOWN_BEHAVIOUR)_reader.Read("Unknown Behaviour", (int)RT_BEHAVIOUR_ALL);
 
 	if(UDPPort < 0 || UDPPort > 65535)
 		UDPPort = DEFAULT_UDP_PORT;
@@ -73,11 +71,11 @@ bool Settings::Read(string path)
 	if(BufferSize <= 0 || BufferSize > 65535)
 		BufferSize = DEFAULT_BUFFERSIZE;
 
-	LogDebug("Debug mode enabled!");
+	LogDebug("RennTek Networking Server v%s", Version.c_str());
 	LogDebug("UDP Port: %d", UDPPort);
 	LogDebug("TCP Port: %d", TCPPort);
 	LogDebug("Buffer Size: %d", BufferSize);
-	LogDebug("Unknown Behaviour: %d", UnknownBehaviour);
+	LogDebug("Unknown Behaviour: %s", (UnknownBehaviour == (int)RT_BEHAVIOUR_OTHERS ? "others" : (UnknownBehaviour == (int)RT_BEHAVIOUR_ALL ? "all" : "unknown")));
 	return true;
 }
 

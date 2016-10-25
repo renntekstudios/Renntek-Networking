@@ -167,6 +167,7 @@ void receive()
 			auth_data[2] = temp_auth[0];
 			auth_data[3] = temp_auth[1];
 			send(&clients[client_id], auth_data, auth_data_length);
+			LogDebug("Sent auth packet to \"%d\"", client_id);
 		}
 		else
 			handle_packet(client, data, receive_length);
@@ -248,6 +249,8 @@ void set_timeout(int* s)
 
 RTServer::RTServer()
 {
+	Utils::SetTitle(string("RennTek Networking Server v") + Settings::Version);
+
 	int result = 0;
 	#ifdef _WIN32
 	if(WSAStartup(MAKEWORD(2,2), &wsa) != 0)

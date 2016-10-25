@@ -12,6 +12,7 @@ public class TestClient : MonoBehaviour
 	public int bufferSize = 512;
 
 	public bool showGUI = true;
+	public bool debugMode = false;
 
 	private string myMessage = "";
 
@@ -23,6 +24,7 @@ public class TestClient : MonoBehaviour
 
 	void Start()
 	{
+		GetComponent<RTNetView>().DebugMode = debugMode;
 		GetComponent<RTNetView>().BufferSize = bufferSize;
 		GetComponent<RTNetView>().Connect(ip, port);
 	}

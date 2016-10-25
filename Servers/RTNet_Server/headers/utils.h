@@ -164,6 +164,20 @@ namespace RTNet
             ss << "\n";
             return ss.str();
         }
+
+        static void SetTitle(string title)
+        {
+            #ifdef _WIN32
+            SetConsoleTitle(TEXT(title.c_str()));
+            #else
+            /*
+            char esc_start[] = { 0x1b, ']', '0', ';', 0 };
+            char esc_end[] = { 0x07, 0 };
+            cout << esc_start << title << esc_end;
+            */
+            cout << "\033]0;" << title << "\007";
+            #endif
+        }
     };
 }
 
