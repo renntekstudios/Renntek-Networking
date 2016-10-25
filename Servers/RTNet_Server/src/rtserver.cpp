@@ -425,6 +425,7 @@ int send(rt_client* client, rt_byte data[], size_t length)
 	catch(exception e)
 	{
 		LogError("Couldn't send data to (%d) - %s", client->id, e.what());
+		return -1;
 	}
 }
 
