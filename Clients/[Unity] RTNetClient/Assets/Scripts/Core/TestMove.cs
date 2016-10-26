@@ -6,14 +6,18 @@ using RTNet;
 [RequireComponent(typeof(RTNetView))]
 public class TestMove : MonoBehaviour
 {
+    public RTNetView nv;
+    
+    void Start() { nv = GetComponent<RTNetView>(); }
 	void Update()
 	{
-		if(GetComponent<RTNetView>().isMine)
-		{
-			float h = Input.GetAxis("Horizontal");
-			float v = Input.GetAxis("Vertical");
+        if (nv.isMine)
+        {
+            float h = Input.GetAxis("Horizontal");
+            float v = Input.GetAxis("Vertical");
 
-			transform.position += new Vector3(h, 0, v);
-		}
+            transform.position += new Vector3(h, 0, v);
+        }
+        else this.enabled = false;
 	}
 }

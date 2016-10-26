@@ -1,4 +1,4 @@
 sceneSetups:
-- path: Assets/test.unity
+- path: Assets/Tank_Template/TemplateSimpleSync.unity
   isLoaded: 1
   isActive: 1
