@@ -248,7 +248,7 @@ namespace RTNet
 			#region Handle Instantiation Requests
 			for (int i = 0; i < instantiationRequests.Count; i++)
 			{
-				if (instantiationRequests[i].BeingHandled)
+				if (instantiationRequests[i].BeingHandled || instantiationRequests[i].SenderID == ID)
 					continue;
 				instantiationRequests[i].BeingHandled = true;
 				GameObject prefab = Resources.Load<GameObject>(instantiationRequests[i].Prefab);
@@ -375,7 +375,8 @@ namespace RTNet
 		/// <param name="rotation">Rotation of the spawned prefab</param>
 		public GameObject NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale, Quaternion rotation)
 		{
-			if(Resources.Load<GameObject>(prefabName) == null)
+                        GameObject go = null
+			if((go = Resources.Load<GameObject>(prefabName)) == null)
 			{
 				Debug.LogWarning("[RTNet][WARNING] Could not instantiate \"" + prefabName + "\" over network - resource not found");
 				return;
@@ -383,7 +384,8 @@ namespace RTNet
 
 			byte[] data = new InstantiateRequest(prefabName, position, scale, rotation, ID).Data;
 			Send((short)UnityPackets.Instantiate, data);
-                        GameObject go = Resources.Load<GameObject>(prefabName, position, rotation);
+                        go.transform.position = position;
+                        go.transform.rotation = rotation;
                         go.transform.localScale = scale;
                         if(go.GetComponent<RTNetView>())
                                 go.GetComponent<RTNetView>()._ownerID = go.GetComponent<RTNetView>().OwnerID = ID;
