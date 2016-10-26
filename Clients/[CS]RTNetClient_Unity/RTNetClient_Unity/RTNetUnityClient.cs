@@ -344,27 +344,27 @@ namespace RTNet
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
-		public void NetworkInstantiate(string prefabName) { NetworkInstantiate(prefabName, Vector3.zero, new Vector3(1, 1, 1), Quaternion.identity); }
+		public GameObject NetworkInstantiate(string prefabName) { return NetworkInstantiate(prefabName, Vector3.zero, new Vector3(1, 1, 1), Quaternion.identity); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
-		public void NetworkInstantiate(string prefabName, Vector3 position) { NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), Quaternion.identity); }
+		public GameObject NetworkInstantiate(string prefabName, Vector3 position) { return NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), Quaternion.identity); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
 		/// <param name="rotation">Rotation of the spawned prefab</param>
-		public void NetworkInstantiate(string prefabName, Vector3 position, Quaternion rotation) { NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), rotation); }
+		public GameObject NetworkInstantiate(string prefabName, Vector3 position, Quaternion rotation) { return NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), rotation); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
 		/// <param name="scale">Scale of the spawned prefab</param>
-		public void NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale) { NetworkInstantiate(prefabName, position, scale, Quaternion.identity); }
+		public GameObject NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale) { return NetworkInstantiate(prefabName, position, scale, Quaternion.identity); }
 
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
@@ -373,7 +373,7 @@ namespace RTNet
 		/// <param name="position">Position to spawn the prefab at</param>
 		/// <param name="scale">Scale of the spawned prefab</param>
 		/// <param name="rotation">Rotation of the spawned prefab</param>
-		public void NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale, Quaternion rotation)
+		public GameObject NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale, Quaternion rotation)
 		{
 			if(Resources.Load<GameObject>(prefabName) == null)
 			{
@@ -383,6 +383,11 @@ namespace RTNet
 
 			byte[] data = new InstantiateRequest(prefabName, position, scale, rotation, ID).Data;
 			Send((short)UnityPackets.Instantiate, data);
+                        GameObject go = Resources.Load<GameObject>(prefabName, position, rotation);
+                        go.transform.localScale = scale;
+                        if(go.GetComponent<RTNetView>())
+                                go.GetComponent<RTNetView>()._ownerID = go.GetComponent<RTNetView>().OwnerID = ID;
+                        return go;
 		}
 
 		internal static void HandleInstantiationRequest(InstantiateRequest request) { instantiationRequests.Add(request); }
