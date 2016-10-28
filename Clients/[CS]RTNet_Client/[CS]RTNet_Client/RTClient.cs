@@ -112,7 +112,7 @@ namespace RTNet
 			// buffer = buffer.Take(bytesRead).Skip(sizeof(short) * 3).ToArray();
 			byte[] data = new byte[bytesRead];
 			for (int i = 0; i < bytesRead; i++)
-				data[i] = buffer[i + sizeof(short) * 3];
+				data[i] = buffer[i + (sizeof(short) * 3)];
 			// LogDebug("STATUS: " + packet_status + "; INTERNAL_ID: " + packet_internal_id + "; INDEX: " + packet_index);
 			
 			if(packet_status == -1)
@@ -199,6 +199,10 @@ namespace RTNet
 					}
 
 					// LogDebug("Got " + bytesRead + " bytes");
+					//string s = "";
+					//for (int i = 0; i < bytesRead; i++)
+						// s += buffer[i] + " ";
+					// LogDebug("Sent (" + bytesRead + " bytes) " + s);
 
 					buffer = SortData(buffer, bytesRead);
 					if (buffer.Length == 0)
@@ -282,6 +286,8 @@ namespace RTNet
 			buffer = toSend.ToArray();
 			toSend.Clear();
 
+			// string s = "";
+
 			int packetSize = sizeof(short) * 3;
 			if (buffer.Length > BufferSize - packetSize)
 			{
@@ -294,6 +300,11 @@ namespace RTNet
 
 					Socket.SendTo(toSend.ToArray(), EndPoint);
 					// LogDebug("Sent " + toSend.Count + " bytes");
+					// s = "";
+					// for (int i = 0; i < toSend.Count; i++)
+						// s += toSend[i] + " ";
+					// LogDebug("Received (" + toSend.Count + " bytes) " + s);
+
 					toSend.Clear();
 					buffer = buffer.Skip(BufferSize - packetSize).ToArray();
 				}
@@ -313,6 +324,10 @@ namespace RTNet
 			int result = Socket.SendTo(toSend.ToArray(), EndPoint);
 			internalIDs.Remove(internalPacketID);
 			// LogDebug("Sent " + toSend.Count + " bytes");
+			// s = "";
+			// for (int i = 0; i < toSend.Count; i++)
+				// s += toSend[i] + " ";
+			// LogError("Sent (" + toSend.Count + " bytes) " + s);
 			return result;
 		}
 

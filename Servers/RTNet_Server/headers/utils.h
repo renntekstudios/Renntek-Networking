@@ -169,6 +169,8 @@ namespace RTNet
         {
             #ifdef _WIN32
             SetConsoleTitle(TEXT(title.c_str()));
+            #elif __APPLE__
+            
             #else
             /*
             char esc_start[] = { 0x1b, ']', '0', ';', 0 };

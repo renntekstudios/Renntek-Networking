@@ -54,5 +54,8 @@ namespace RTNet
 		int SendOthers(rt_id sender, rt_byte data[], size_t length);
 		int SendOthers(rt_client* sender, rt_byte data[], size_t length);
 		int SendAll(rt_byte data[], size_t length);
+
+		unsigned int BytesInSec();
+		unsigned int BytesOutSec();
 	};
 }

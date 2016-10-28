@@ -220,8 +220,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ip: 127.0.0.1
   port: 4434
-  bufferSize: 2048
+  bufferSize: 1024
   showGUI: 1
+  debugMode: 1
   pos: 
   messages: []
 --- !u!114 &663829859

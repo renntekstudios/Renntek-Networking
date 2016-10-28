@@ -15,8 +15,9 @@ namespace RTNet
 
 		public bool isReading { get; internal set; }
 		public bool isWriting { get; internal set; }
+		public bool EndOfStream { get { if (isWriting) return false; return index >= objects.Count; } }
 
-		internal RTStream() { objects = new List<object>(); }
+		public RTStream() { objects = new List<object>(); }
 		internal RTStream(object[] o) { objects = new List<object>(o); }
 		internal RTStream(List<object> o) { objects = new List<object>(o); }
 
@@ -25,25 +26,41 @@ namespace RTNet
 		
 		public void Write(object o)
 		{
+			/*
 			if (o.GetType().Equals(typeof(Vector2)))
-				objects.Add((Vec2)(Vector2)o);
+				o = (Vec2)(Vector2)o;
 			else if (o.GetType().Equals(typeof(Vector3)))
-				objects.Add((Vec3)(Vector3)o);
+				o = (Vec3)(Vector3)o;
 			else if (o.GetType().Equals(typeof(Vector4)))
-				objects.Add((Vec4)(Vector4)o);
+				o = (Vec4)(Vector4)o;
 			else if (o.GetType().Equals(typeof(Quaternion)))
-				objects.Add((Vec4)(Quaternion)o);
+				o = (Vec4)(Quaternion)o;
 			else if (o.GetType().Equals(typeof(Color)))
-				objects.Add((Vec4)(Color)o);
-			else
-				objects.Add(o);
+				o = (Vec4)(Color)o;
+			*/
+			objects.Add(o);
+		}
+
+		public void Write(object[] o)
+		{
+			for (int i = 0; i < o.Length; i++)
+				Write(o[i]);
 		}
 
 		public object Read()
 		{
-			if (index >= objects.Count)
+			if (EndOfStream)
 				return null;
 			return objects[index++];
+		}
+		
+		public object[] ReadRemaining()
+		{
+			if (EndOfStream)
+				return new object[0];
+			object[] o = objects.Skip(index).ToArray();
+			index = objects.Count;
+			return o;
 		}
 
 		public T Read<T>()
@@ -71,41 +88,47 @@ namespace RTNet
 		public void Skip() { index++; }
 		public void Rewind() { index = 0; }
 
-		internal byte[] GetData()
+		internal byte[] Data
 		{
-			if (objects.Count == 0)
-				return new byte[0];
-			BinaryFormatter bf = new BinaryFormatter();
-			MemoryStream ms = new MemoryStream();
+			get
+			{
+				if (objects.Count == 0)
+					return new byte[0];
+				return RTSerialization.Serialize(objects.ToArray());
+				/*
+				BinaryFormatter bf = new BinaryFormatter();
+				MemoryStream ms = new MemoryStream();
 
-			bf.Serialize(ms, objects);
-			byte[] buffer = ms.ToArray();
-			ms.Dispose();
-
-			return buffer;
+				bf.Serialize(ms, objects.ToArray());
+				return ms.ToArray();
+				*/
+			}
 		}
 
-		internal static RTStream GetStream(byte[] data)
+		public static RTStream GetStream(byte[] data)
 		{
-			RTStream stream = new RTStream((List<object>)new BinaryFormatter().Deserialize(new MemoryStream(data)));
-			for(int i = 0; i < stream.objects.Count; i++)
+			return new RTStream(RTSerialization.Deserialize(data));
+			/*
+			RTStream s = new RTStream((object[])new BinaryFormatter().Deserialize(new MemoryStream(data)));
+			for(int i = 0; i < s.objects.Count; i++)
 			{
-				if (stream.objects[i].GetType().Equals(typeof(Vec2)))
-					stream.objects[i] = (Vector2)(Vec2)stream.objects[i];
-				else if (stream.objects[i].GetType().Equals(typeof(Vec3)))
-					stream.objects[i] = (Vector3)(Vec3)stream.objects[i];
-				else if (stream.objects[i].GetType().Equals(typeof(Vec4)))
+				if (s.objects[i].GetType().Equals(typeof(Vec2)))
+					s.objects[i] = (Vector2)(Vec2)s.objects[i];
+				else if (s.objects[i].GetType().Equals(typeof(Vec3)))
+					s.objects[i] = (Vector3)(Vec3)s.objects[i];
+				else if(s.objects[i].GetType().Equals(typeof(Vec4)))
 				{
-					switch(((Vec4)stream.objects[i]).Type)
+					switch(((Vec4)s.objects[i]).Type)
 					{
 						default:
-						case Vec4.Vec4Type.Normal: stream.objects[i] = (Vector4)(Vec4)stream.objects[i]; break;
-						case Vec4.Vec4Type.Color: stream.objects[i] = (Color)(Vec4)stream.objects[i]; break;
-						case Vec4.Vec4Type.Quaternion: stream.objects[i] = (Quaternion)(Vec4)stream.objects[i]; break;
+						case Vec4.Vec4Type.Normal: s.objects[i] = (Vector4)(Vec4)s.objects[i]; break;
+						case Vec4.Vec4Type.Quaternion:s.objects[i] = (Quaternion)(Vec4)s.objects[i]; break;
+						case Vec4.Vec4Type.Color: s.objects[i] = (Color)(Vec4)s.objects[i]; break;
 					}
 				}
 			}
-			return stream;
+			return s;
+			*/
 		}
 	}
 
@@ -134,7 +157,6 @@ namespace RTNet
 
 		internal void _internal_sync_stream(byte[] data)
 		{
-			Debug.Log("INTERNAL SYNC THING");
 			RTStream stream = RTStream.GetStream(data);
 			stream.SetReading();
 			OnSerializeView(ref stream);

@@ -1,6 +1,6 @@
 #include <map>
+#include <math.h>
 #include <thread>
-#include <chrono>
 #include <stdio.h>
 #include <algorithm>
 #include <exception>
@@ -20,6 +20,11 @@ bool running = false;
 struct sockaddr_in si_server_udp;
 struct sockaddr_in si_server_tcp;
 
+unsigned int bytesInSec;
+unsigned int bytesOutSec;
+unsigned int bytesInSecFinal;
+unsigned int bytesOutSecFinal;
+
 #ifdef _WIN32
 SOCKET udp_socket;
 SOCKET tcp_socket;
@@ -29,6 +34,7 @@ int udp_socket;
 int tcp_socket;
 #endif
 
+thread* timer_thread;
 thread* receive_thread;
 thread* tcp_accept_thread;
 vector<thread*> tcp_receive_threads;
@@ -38,6 +44,7 @@ vector<rt_byte> unhandled_bytes;
 vector<rt_packet_id> sent_packet_ids;
 vector<unhandled_packet_t> unhandled_packets;
 
+void timer_loop();
 int send_all(rt_byte data[], size_t length);
 int send(rt_id client, rt_byte data[], size_t length);
 int send_raw(rt_id client, rt_byte data[], size_t length);
@@ -102,6 +109,7 @@ void receive()
 		receive_length = recvfrom(udp_socket, buffer, Settings::BufferSize, 0, (struct sockaddr*)&addr, &addrlen);
 		if(receive_length <= 0)
 			continue;
+		bytesInSec += receive_length;
 
 		if(receive_length == 3 && buffer[0] == (char)17 && buffer[1] == (char)19 && buffer[2] == (char)RT_PACKET_DISCOVER)
 		{
@@ -142,7 +150,7 @@ void receive()
 		rt_byte* data = new rt_byte[receive_length];
 		memcpy(data, buffer, receive_length);
 
-		LogDebug("Received packet from \"%s:%d\" (%d)(%d bytes)", address, port, client_id, receive_length);
+		// LogDebug("Received packet from \"%s:%d\" (%d)(%d bytes)", address, port, client_id, receive_length);
 		if(receive_length == 3)
 		{
 			if(data[0] != 17 || data[1] != 19)
@@ -296,6 +304,7 @@ RTServer::RTServer()
 	
 	running = true;
 	receive_thread = new thread(receive);
+	timer_thread = new thread(timer_loop);
 	tcp_accept_thread = new thread(tcp_accept);
 }
 
@@ -305,6 +314,8 @@ void RTServer::Stop()
 		return;
 	running = false;
 	receive_thread->join();
+	tcp_accept_thread->join();
+	timer_thread->join();
 	// delete receive_thread;
 	#ifdef _WIN32
 	closesocket(udp_socket);
@@ -377,6 +388,7 @@ int send(rt_client* client, rt_byte data[], size_t length)
 					LogWarning("Could not send data (%d bytes)", tosend.size());
 				// else
 				//	LogDebug("Sent %d bytes", tosend.size());
+				bytesOutSec += tosend.size();
 
 				data_length -= Settings::BufferSize - PACKET_SIZE;
 				rt_byte* temp_data = new rt_byte[data_length];
@@ -411,7 +423,9 @@ int send(rt_client* client, rt_byte data[], size_t length)
 				}
 				tosend.insert(tosend.end(), temp.begin(), temp.end());
 			}
-			tosend.insert(tosend.end(), data, data + data_length);
+			for(unsigned int i = 0; i < data_length; i++)
+				tosend.push_back(data[i]);
+			// tosend.insert(tosend.end(), data, data + data_length);
 		}
 
 		int result = 0;
@@ -422,6 +436,7 @@ int send(rt_client* client, rt_byte data[], size_t length)
 			result = 0;
 			// LogDebug("Sent %d bytes", tosend.size());
 		}
+		bytesOutSec += tosend.size();
 		sent_packet_ids.erase(remove(sent_packet_ids.begin(), sent_packet_ids.end(), packet_id), sent_packet_ids.end());
 		return result;
 	}
@@ -623,4 +638,49 @@ void close_connection(rt_client* client, bool send_packet)
 	
 	Log("(%d) \"%s:%d\" disconnected", client->id, client->address, client->port);
 	clients.erase(client->id);
+}
+
+unsigned int RTServer::BytesInSec() { return bytesInSecFinal; }
+unsigned int RTServer::BytesOutSec() { return bytesOutSecFinal; }
+
+void timer_loop()
+{
+	stringstream ss;
+	short milliseconds = 0;
+	while(running)
+	{
+		if(milliseconds == 1000)
+		{
+			bytesInSecFinal = bytesInSec;
+			bytesOutSecFinal = bytesOutSec;
+			bytesInSec = 0;
+			bytesOutSec = 0;
+
+			ss << "RennTek Networking Server v" << Settings::Version;
+			if(bytesInSecFinal > 0 || bytesOutSecFinal > 0)
+			{
+				ss << " [";
+				if(bytesInSecFinal > 1024)
+					ss << roundf(bytesInSecFinal / 10.24f) / 100 << "kb/s in : ";
+				else
+					ss << bytesInSecFinal << "b/s in : ";
+				if(bytesOutSecFinal > 1024)
+					ss << roundf(bytesOutSecFinal / 10.24f) / 100 << "kb/s out]";
+				else
+					ss << bytesOutSecFinal << "b/s out]";
+			}
+			Utils::SetTitle(ss.str());
+			
+			ss.clear();
+			ss.str(string());
+			milliseconds = 0;
+		}
+
+		#ifdef _WIN32
+		Sleep((DWORD)100);
+		#else
+		sleep(100);
+		#endif
+		milliseconds += 100;
+	}
 }

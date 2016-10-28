@@ -72,6 +72,7 @@ namespace RTNet
 	[Serializable()]
 	internal class RTNetRPC
 	{
+		private const int MaxStringLength = 25;
 		public short SenderID;
 		public short ViewID;
 		public short Receiver;
@@ -94,7 +95,12 @@ namespace RTNet
 			}
 		}
 
-		public static RTNetRPC FromData(byte[] data) { if (data == null) return null; return (RTNetRPC)new BinaryFormatter().Deserialize(new MemoryStream(data));	}
+		public static RTNetRPC FromData(byte[] data)
+		{
+			if (data == null)
+				return null;
+			return (RTNetRPC)new BinaryFormatter().Deserialize(new MemoryStream(data));
+		}
 	}
 
 	public class RTNetView : MonoBehaviour
@@ -150,21 +156,6 @@ namespace RTNet
 			rpc.SenderID = Client.ID;
 			rpc.ViewID = ViewID;
 			rpc.Receiver = receiver;
-
-			for(int i = 0; i < args.Length; i++)
-			{
-				if (args[i].GetType().Equals(typeof(Vector2)))
-					args[i] = (Vec2)(Vector2)args[i];
-				else if (args[i].GetType().Equals(typeof(Vector3)))
-					args[i] = (Vec3)(Vector3)args[i];
-				else if (args[i].GetType().Equals(typeof(Vector4)))
-					args[i] = (Vec4)(Vector4)args[i];
-				else if (args[i].GetType().Equals(typeof(Quaternion)))
-					args[i] = (Vec4)(Quaternion)args[i];
-				else if (args[i].GetType().Equals(typeof(Color)))
-					args[i] = (Vec4)(Color)args[i];
-			}
-
 			rpc.Method = method;
 			rpc.Args = args;
 
@@ -189,7 +180,7 @@ namespace RTNet
 			toSend.AddRange(BitConverter.GetBytes(ViewID));
 			toSend.AddRange(BitConverter.GetBytes(index));
 			toSend.AddRange(BitConverter.GetBytes(ID));
-			toSend.AddRange(stream.GetData());
+			toSend.AddRange(stream.Data);
 			Client.Send((short)UnityPackets.SerializedData, toSend.ToArray());
 		}
 
@@ -251,15 +242,20 @@ namespace RTNet
 				if (instantiationRequests[i].BeingHandled || instantiationRequests[i].SenderID == ID)
 					continue;
 				instantiationRequests[i].BeingHandled = true;
-				GameObject prefab = Resources.Load<GameObject>(instantiationRequests[i].Prefab);
+				if(string.IsNullOrEmpty(instantiationRequests[i].Prefab))
+				{
+					instantiationRequests.RemoveAt(i);
+					continue;
+				}
+				UnityEngine.Object prefab = Resources.Load(instantiationRequests[i].Prefab);
 				if(prefab == null)
 				{
-					Debug.LogWarning("[RTNet][WARNING] Could not find prefab \"" + instantiationRequests[i].Prefab + "\" to instantiate");
+					Debug.LogWarning("[RTNet][WARNING] Could not find \"" + instantiationRequests[i].Prefab + "\" in resources when trying to instantiate");
 					instantiationRequests.RemoveAt(i);
 					continue;
 				}
 				GameObject instantiated = (GameObject)Instantiate(prefab, instantiationRequests[i].Position, instantiationRequests[i].Rotation);
-				if(instantiationRequests[i].Scale != new Vector3(1, 1, 1))
+				if(instantiationRequests[i].Scale != Vector3.zero)
 					instantiated.transform.localScale = instantiationRequests[i].Scale;
 				if (instantiated.GetComponent<RTNetView>())
 					instantiated.GetComponent<RTNetView>().OwnerID = instantiated.GetComponent<RTNetView>()._ownerID = instantiationRequests[i].SenderID;
@@ -289,7 +285,10 @@ namespace RTNet
 						break;
 					if (behaviourIndex != r.index)
 						continue;
-					r._internal_sync_stream(streams[i].Skip(sizeof(short) * 3).ToArray());
+					try
+					{
+						r._internal_sync_stream(streams[i].Skip(sizeof(short) * 3).ToArray());
+					} catch { }
 					found = true;
 				}
 				if (found)
@@ -305,22 +304,6 @@ namespace RTNet
 
 		internal static void HandleRPC(RTNetRPC rpc)
 		{
-			for(int i = 0; i < rpc.Args.Length; i++)
-			{
-				if (rpc.Args[i].GetType().Equals(typeof(Vec2)))
-					rpc.Args[i] = (Vector2)(Vec2)rpc.Args[i];
-				else if (rpc.Args[i].GetType().Equals(typeof(Vec3)))
-					rpc.Args[i] = (Vector3)(Vec3)rpc.Args[i];
-				else if (rpc.Args[i].GetType().Equals(typeof(Vec4)))
-				{
-					if (((Vec4)rpc.Args[i]).Type == Vec4.Vec4Type.Quaternion)
-						rpc.Args[i] = (Quaternion)(Vec4)rpc.Args[i];
-					else if (((Vec4)rpc.Args[i]).Type == Vec4.Vec4Type.Color)
-						rpc.Args[i] = (Color)(Vec4)rpc.Args[i];
-					else
-						rpc.Args[i] = (Vector4)(Vec4)rpc.Args[i];
-				}
-			}
 			// Debug.Log("Got RPC \"" + rpc.Method + "\"");
 			unhandledRPCs.Add(rpc);
 		}
@@ -344,20 +327,20 @@ namespace RTNet
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
-		public GameObject NetworkInstantiate(string prefabName) { return NetworkInstantiate(prefabName, Vector3.zero, new Vector3(1, 1, 1), Quaternion.identity); }
+		public GameObject NetworkInstantiate(string prefabName) { return NetworkInstantiate(prefabName, Vector3.zero, Vector3.zero, Quaternion.identity); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
-		public GameObject NetworkInstantiate(string prefabName, Vector3 position) { return NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), Quaternion.identity); }
+		public GameObject NetworkInstantiate(string prefabName, Vector3 position) { return NetworkInstantiate(prefabName, position, Vector3.zero, Quaternion.identity); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
 		/// <param name="prefabName">Name of the prefab to instantiate</param>
 		/// <param name="position">Position to spawn the prefab at</param>
 		/// <param name="rotation">Rotation of the spawned prefab</param>
-		public GameObject NetworkInstantiate(string prefabName, Vector3 position, Quaternion rotation) { return NetworkInstantiate(prefabName, position, new Vector3(1, 1, 1), rotation); }
+		public GameObject NetworkInstantiate(string prefabName, Vector3 position, Quaternion rotation) { return NetworkInstantiate(prefabName, position, Vector3.zero, rotation); }
 		/// <summary>
 		/// Spawns a prefab with the given name from the Resources folder
 		/// </summary>
@@ -375,20 +358,23 @@ namespace RTNet
 		/// <param name="rotation">Rotation of the spawned prefab</param>
 		public GameObject NetworkInstantiate(string prefabName, Vector3 position, Vector3 scale, Quaternion rotation)
 		{
-                        Object o = null
+			if (string.IsNullOrEmpty(prefabName))
+				return null;
+			UnityEngine.Object o = null;
 			if((o = Resources.Load<GameObject>(prefabName)) == null)
 			{
 				Debug.LogWarning("[RTNet][WARNING] Could not instantiate \"" + prefabName + "\" over network - resource not found");
-				return;
+				return null;
 			}
 
 			byte[] data = new InstantiateRequest(prefabName, position, scale, rotation, ID).Data;
 			Send((short)UnityPackets.Instantiate, data);
-                        GameObject go = (GameObject)Instantiate(o, position, rotation);
-                        go.transform.localScale = scale;
-                        if(go.GetComponent<RTNetView>())
-                                go.GetComponent<RTNetView>()._ownerID = go.GetComponent<RTNetView>().OwnerID = ID;
-                        return go;
+            GameObject go = (GameObject)Instantiate(o, position, rotation);
+			if(scale != Vector3.zero)
+				go.transform.localScale = scale;
+            if(go.GetComponent<RTNetView>())
+                    go.GetComponent<RTNetView>()._ownerID = go.GetComponent<RTNetView>().OwnerID = ID;
+            return go;
 		}
 
 		internal static void HandleInstantiationRequest(InstantiateRequest request) { instantiationRequests.Add(request); }
@@ -428,6 +414,11 @@ namespace RTNet
 		{
 			get
 			{
+				List<byte> bytes = new List<byte>();
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(x, 3) * 1000)));
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(y, 3) * 1000)));
+				return bytes.ToArray();
+				/*
 				BinaryFormatter bf = new BinaryFormatter();
 				MemoryStream ms = new MemoryStream();
 
@@ -436,10 +427,17 @@ namespace RTNet
 				ms.Dispose();
 
 				return data;
+				*/
 			}
 		}
 
-		public static Vec2 FromData(byte[] data) { return (Vec2)new BinaryFormatter().Deserialize(new MemoryStream(data)); }
+		public static int Length { get { return sizeof(int) * 2; } }
+
+		public static Vec2 FromData(byte[] data)
+		{
+			return new Vec2(BitConverter.ToInt32(data, 0) / 1000.0f, BitConverter.ToInt32(data, 2) / 1000.0f);
+			//return (Vec2)new BinaryFormatter().Deserialize(new MemoryStream(data));
+		}
 
 		public static implicit operator Vector2(Vec2 v) { return v.ToVector2(); }
 		public static implicit operator Vec2(Vector2 v) { return FromVector2(v); }
@@ -462,6 +460,12 @@ namespace RTNet
 		{
 			get
 			{
+				List<byte> bytes = new List<byte>();
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(x, 3) * 1000)));
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(y, 3) * 1000)));
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(z, 3) * 1000)));
+				return bytes.ToArray();
+				/*
 				BinaryFormatter bf = new BinaryFormatter();
 				MemoryStream ms = new MemoryStream();
 
@@ -470,10 +474,17 @@ namespace RTNet
 				ms.Dispose();
 
 				return data;
+				*/
 			}
 		}
 
-		public static Vec3 FromData(byte[] data) { return (Vec3)new BinaryFormatter().Deserialize(new MemoryStream(data)); }
+		public static int Length { get { return sizeof(int) * 3; } }
+
+		public static Vec3 FromData(byte[] data)
+		{
+			return new Vec3(BitConverter.ToInt32(data, 0) / 1000.0f, BitConverter.ToInt32(data, sizeof(int)) / 1000.0f, BitConverter.ToInt32(data, sizeof(int) * 2) / 1000.0f);
+			// return (Vec3)new BinaryFormatter().Deserialize(new MemoryStream(data));
+		}
 
 		public static implicit operator Vector3(Vec3 v) { return v.ToVector3(); }
 		public static implicit operator Vec3(Vector3 v) { return FromVector3(v); }
@@ -482,7 +493,7 @@ namespace RTNet
 	[Serializable]
 	internal class Vec4 // Quaternions can also be converted to Vec4b
 	{
-		internal enum Vec4Type { Normal, Quaternion, Color }
+		internal enum Vec4Type : byte { Normal, Quaternion, Color }
 		public Vec4Type Type { get; internal set; }
 		public float x, y, z, w;
 
@@ -502,6 +513,14 @@ namespace RTNet
 		{
 			get
 			{
+				List<byte> bytes = new List<byte>();
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(x, 3) * 1000)));
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(y, 3) * 1000)));
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(z, 3) * 1000)));
+				bytes.AddRange(BitConverter.GetBytes((int)(Math.Round(w, 3) * 1000)));
+				bytes.Add((byte)Type);
+				return bytes.ToArray();
+				/*
 				BinaryFormatter bf = new BinaryFormatter();
 				MemoryStream ms = new MemoryStream();
 
@@ -510,10 +529,17 @@ namespace RTNet
 				ms.Dispose();
 
 				return data;
+				*/
 			}
 		}
 
-		public static Vec4 FromData(byte[] data) { return (Vec4)new BinaryFormatter().Deserialize(new MemoryStream(data)); }
+		public static int Length { get { return (sizeof(int) * 4) + 1; } }
+
+		public static Vec4 FromData(byte[] data)
+		{
+			return new Vec4(BitConverter.ToInt32(data, 0) / 1000.0f, BitConverter.ToInt32(data, sizeof(int)) / 1000.0f, BitConverter.ToInt32(data, sizeof(int) * 2) / 1000.0f, BitConverter.ToInt32(data, sizeof(int) * 3) / 1000.0f) { Type = (Vec4Type)data[data.Length - 1] };
+			// return (Vec4)new BinaryFormatter().Deserialize(new MemoryStream(data));
+		}
 
 		public static implicit operator Vector4(Vec4 v) { return v.ToVector4(); }
 		public static implicit operator Quaternion(Vec4 v) { return v.ToQuaternion(); }
@@ -527,6 +553,8 @@ namespace RTNet
 	[Serializable]
 	internal class InstantiateRequest
 	{
+		private const int StringMaxLength = 30;
+
 		[NonSerialized]
 		public bool BeingHandled;
 
@@ -540,7 +568,10 @@ namespace RTNet
 		public InstantiateRequest(string prefab, Vec3 position, Vec3 scale, Vec4 rotation, short senderID)
 		{
 			this.SenderID = senderID;
-			this.Prefab = prefab;
+			if (prefab.Length > StringMaxLength)
+				Debug.LogWarning("[RTNet][WARNING] Cannot instantiate object with name longer than " + StringMaxLength + " characters long");
+			else
+				this.Prefab = prefab;
 			this.Position = position;
 			this.Scale = scale;
 			this.Rotation = rotation;
@@ -550,6 +581,16 @@ namespace RTNet
 		{
 			get
 			{
+				List<byte> tosend = new List<byte>();
+				tosend.AddRange(BitConverter.GetBytes(SenderID));
+				tosend.AddRange(Position.Data);
+				tosend.AddRange(Scale.Data);
+				tosend.AddRange(Rotation.Data);
+				tosend.AddRange(System.Text.Encoding.UTF8.GetBytes(Prefab));
+				return tosend.ToArray();
+				
+
+				/*
 				BinaryFormatter bf = new BinaryFormatter();
 				MemoryStream ms = new MemoryStream();
 
@@ -558,9 +599,15 @@ namespace RTNet
 				ms.Dispose();
 
 				return data;
+				*/
 			}
 		}
 
-		public static InstantiateRequest FromData(byte[] data) { return (InstantiateRequest)new BinaryFormatter().Deserialize(new MemoryStream(data)); }
+		public static InstantiateRequest FromData(byte[] data)
+		{
+			int prefabLength = Vec3.Length * 2 + Vec4.Length + sizeof(short);
+			return new InstantiateRequest(System.Text.Encoding.UTF8.GetString(data, prefabLength, data.Length - prefabLength), Vec3.FromData(data.Skip(sizeof(short)).ToArray()), Vec3.FromData(data.Skip(sizeof(short) + Vec3.Length).ToArray()), Vec4.FromData(data.Skip(sizeof(short) + Vec3.Length * 2).ToArray()), BitConverter.ToInt16(data, 0));
+			// return (InstantiateRequest)new BinaryFormatter().Deserialize(new MemoryStream(data));
+		}
 	}
 }
