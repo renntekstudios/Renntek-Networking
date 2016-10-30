@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 55ed4b83f219d70439508f00eefd1504
+timeCreated: 1477824384
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  fontSize: 152
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - FORCED SQUARE
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

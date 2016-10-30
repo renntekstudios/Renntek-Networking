@@ -143,12 +143,13 @@ namespace RTNet
 		public bool isPlayer { get { return View.isPlayer; } set { View.isPlayer = value; } }
 
 		[Tooltip("in Hz")]
-		public float sendRate = 60; // Hz
+		protected float sendRate = 60; // Hz
 
 		internal void Init()
 		{
-			RTNetClient.onConnected += OnConnected;
-			RTNetClient.onDisconnected += OnDisconnected;
+			RTNetClient.onConnecting += _internal_onConnecting;
+			RTNetClient.onConnected += _internal_onConnected;
+			RTNetClient.onDisconnected += _internal_onDisconnected;
 			while (indexes.Contains(index++)) ;
 			indexes.Add(index);
 
@@ -178,7 +179,21 @@ namespace RTNet
 			}
 		}
 
+		internal void _internal_onConnecting() { OnConnecting(); }
+		internal void _internal_onConnected() { OnConnected(); }
+		internal void _internal_onDisconnected() { OnDisconnected(); }
+
+		/// <summary>
+		/// Called just before trying to connect
+		/// </summary>
+		protected virtual void OnConnecting() { }
+		/// <summary>
+		/// Called when connected to a server
+		/// </summary>
 		protected virtual void OnConnected() { }
+		/// <summary>
+		/// Called once disconnected from a server
+		/// </summary>
 		protected virtual void OnDisconnected() { }
 
 		protected virtual void OnSerializeView(ref RTStream stream) { }

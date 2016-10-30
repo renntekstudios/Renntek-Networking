@@ -56,8 +56,12 @@ namespace RTNet
 			}
 		}
 
+		protected override void OnConnecting() { onConnecting?.Invoke(); }
 		protected override void OnConnected() { onConnected?.Invoke(); }
 		protected override void OnDisconnected() { onDisconnected?.Invoke(); }
+
+		internal delegate void _onConnecting();
+		internal static event _onConnecting onConnecting;
 
 		internal delegate void _onConnected();
 		internal static event _onConnected onConnected;

@@ -72,6 +72,8 @@ namespace RTNet
 				return;
 			}
 
+			OnConnecting();
+
 			Socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 			if (Timeout)
 				Socket.ReceiveTimeout = ReceiveTimeout;
@@ -359,7 +361,17 @@ namespace RTNet
 			return info;
 		}
 
+		/// <summary>
+		/// Called just before trying to connect to a server
+		/// </summary>
+		protected virtual void OnConnecting() { }
+		/// <summary>
+		/// Called when connected to a server
+		/// </summary>
 		protected virtual void OnConnected() { }
+		/// <summary>
+		/// Called once disconnected from a server
+		/// </summary>
 		protected virtual void OnDisconnected() { }
 
 		#region Logging
