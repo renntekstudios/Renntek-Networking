@@ -36,7 +36,7 @@ static void Main(string[] args)
 ```
 
 ## Images
-![alt text](http://imgur.com/Rc76W7X "RTNet Client - Agar.io clone")
+[Imgur](http://i.imgur.com/Rc76W7X.png)
 
 
 
