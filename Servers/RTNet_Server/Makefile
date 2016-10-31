@@ -32,17 +32,11 @@ ifeq '$(OS)' 'Windows_NT'
 else
 ifeq '$(UNAME_S)' 'Linux'
 		$(CC) -o bin/server/RTNetServer $(DEPS) $(CFLAGS_EXEC) -pthread
-		chmod 777 bin/server/RTNetServer
+		chmod +x bin/server/RTNetServer
 endif
 ifeq '$(UNAME_S)' 'Darwin'
-		mkdir -p bin/server/RTNetServer.app/MacOS/
-		$(CC) -o bin/server/RTNetServer.app/MacOS/RTNetServer $(DEPS) $(CFLAGS_EXEC)
-		mkdir -p bin/server/RTNetServer.app/Contents/Resources/
-		cp resources/mac/start_server.sh bin/server/RTNetServer.app/MacOS/start.sh
-		cp resources/mac/Info.plist bin/server/RTNetServer.app/Contents/Info.plist
-		cp resources/mac/icon.icns bin/server/RTNetServer.app/Contents/Resources/icon.icns
-		chmod a+x bin/server/RTNetServer.app
-		chmod +x bin/server/RTNetServer.app/MacOS/start.sh
+		$(CC) -o bin/server/RTNetServer $(DEPS) $(CFLAGS_EXEC)
+		chmod +x bin/server/RTNetServer
 endif
 endif
 
