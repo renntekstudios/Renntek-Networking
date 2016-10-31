@@ -11,7 +11,7 @@
 #include "enums.h"
 #include "logger.h"
 
-#ifdef _WIN32
+#ifdef PLATFORM_WINDOWS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <winsock2.h>
@@ -167,9 +167,9 @@ namespace RTNet
 
         static void SetTitle(string title)
         {
-            #ifdef _WIN32
+            #ifdef PLATFORM_WINDOWS
             SetConsoleTitle(TEXT(title.c_str()));
-            #elif __APPLE__
+            #elif PLATFORM_MAC
             
             #else
             /*

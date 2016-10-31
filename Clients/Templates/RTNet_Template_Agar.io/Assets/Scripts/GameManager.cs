@@ -53,6 +53,6 @@ public class GameManager : MonoBehaviour
 		// todo: spawn at random spot
 		GameObject go = GetComponent<RTNetView>().NetworkInstantiate(playerPrefab);
 		go.name = "Local Player";
-		state = PlayerState.Dead;
+		state = PlayerState.Alive;
 	}
 }

@@ -9,7 +9,7 @@ using namespace std;
 
 namespace RTNet
 {
-	typedef unsigned short rt_packet_id;
+	typedef unsigned char rt_packet_id;
 	
 	struct unhandled_packet_t
 	{

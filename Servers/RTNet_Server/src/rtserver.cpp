@@ -10,7 +10,7 @@
 #include "utils.h"
 
 #define RECEIVE_TIMEOUT (1000 / 60) // 60Hz
-#define PACKET_SIZE (sizeof(short) * 3)
+#define PACKET_SIZE (sizeof(unsigned char) * 3)
 
 using namespace std;
 using namespace std::chrono;
@@ -113,7 +113,7 @@ void receive()
 
 		if(receive_length == 3 && buffer[0] == (char)17 && buffer[1] == (char)19 && buffer[2] == (char)RT_PACKET_DISCOVER)
 		{
-			LogDebug("Got discover packet");
+			// LogDebug("Got discover packet");
 			sendto(udp_socket, buffer, receive_length, 0, (struct sockaddr*)&addr, sizeof(addr));
 			continue;
 		}
@@ -175,7 +175,7 @@ void receive()
 			auth_data[2] = temp_auth[0];
 			auth_data[3] = temp_auth[1];
 			send(&clients[client_id], auth_data, auth_data_length);
-			LogDebug("Sent auth packet to \"%d\"", client_id);
+			// LogDebug("Sent auth packet to \"%d\"", client_id);
 		}
 		else
 			handle_packet(client, data, receive_length);
@@ -226,12 +226,18 @@ int create_socket(int* s, int protocol)
 		LogError("Could not create %s socket - %d", (protocol == 0 ? "UDP" : (protocol == 1 ? "TCP" : "UNKNOWN_PROTOCOL")), WSAGetLastError());
 		return result;
 	}
+	DWORD nonBlocking = 1;
+	if(ioctlsocket(*s, FIONBIO, &nonBlocking) != 0)
+		LogWarning("Failed to set socket as non-blocking");
 	#else
 	if(result < 0)
 	{
 		LogError("Could not create %s socket - %d", (protocol == 0 ? "UDP" : (protocol == 1 ? "TCP" : "UNKNOWN_PROTOCOL")), s);
 		return result;
 	}
+	int nonBlocking = 1;
+	if(fcntl(*s, F_SETFL, O_NONBLOCK, nonBlocking) == -1)
+		LogWarning("Failed to set socket as non-blocking");
 	#endif
 	return 0;
 }
@@ -360,7 +366,7 @@ int send(rt_client* client, rt_byte data[], size_t length)
 		
 		vector<rt_byte> tosend;
 		rt_packet_id packet_id = GetPacketID();
-		unsigned int index = 0;
+		char index = 0;
 		sent_packet_ids.push_back(packet_id);
 
 		char* address = inet_ntoa(sock_addr.sin_addr);
@@ -371,17 +377,9 @@ int send(rt_client* client, rt_byte data[], size_t length)
 		{
 			while(data_length > Settings::BufferSize - PACKET_SIZE)
 			{
-				for(int i = 0;i < 3;i++)
-				{
-					switch(i)
-					{
-					case 0: temp = short_to_bytes(-1); break;
-					case 1: temp = short_to_bytes(packet_id); break;
-					case 2: temp = short_to_bytes(index++); break;
-					default: LogError("SEND - Shouldn't be here"); break;
-					}
-					tosend.insert(tosend.end(), temp.begin(), temp.end());
-				}
+				tosend.push_back(1);
+				tosend.push_back(packet_id);
+				tosend.push_back(index++);
 				tosend.insert(tosend.end(), data, data + Settings::BufferSize - PACKET_SIZE);
 				
 				if(sendto(udp_socket, tosend.data(), tosend.size(), 0, (struct sockaddr*)&sock_addr, socket_length) == -1)
@@ -397,32 +395,16 @@ int send(rt_client* client, rt_byte data[], size_t length)
 				delete[] temp_data;
 				tosend.clear();
 			}
-			for(int i = 0;i < 3;i++)
-			{
-				switch(i)
-				{
-				case 0: temp = short_to_bytes(-2); break;
-				case 1: temp = short_to_bytes(packet_id); break;
-				case 2: temp = short_to_bytes(index++); break;
-				default: LogError("SEND - Shouldn't be here"); break;
-				}
-				tosend.insert(tosend.end(), temp.begin(), temp.end());
-			}
+			tosend.push_back(2);
+			tosend.push_back(packet_id);
+			tosend.push_back(index++);
 			tosend.insert(tosend.end(), data, data + data_length);
 		}
 		else
 		{
-			for(int i = 0;i < 3;i++)
-			{
-				switch(i)
-				{
-				case 0: temp = short_to_bytes(-3); break;
-				case 1: temp = short_to_bytes(packet_id); break;
-				case 2: temp = short_to_bytes(++index); break;
-				default: LogError("SEND - Shouldn't be here"); break;
-				}
-				tosend.insert(tosend.end(), temp.begin(), temp.end());
-			}
+			tosend.push_back(3);
+			tosend.push_back(packet_id);
+			tosend.push_back(index++);
 			for(unsigned int i = 0; i < data_length; i++)
 				tosend.push_back(data[i]);
 			// tosend.insert(tosend.end(), data, data + data_length);
@@ -515,9 +497,9 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	if(client == nullptr)
 		return;
 
-	short packet_status = bytes_to_short(buffer);
-	short packet_internal_id = bytes_to_short(buffer, sizeof(short));
-	short packet_index = bytes_to_short(buffer, sizeof(short) * 2);
+	char packet_status = (char)buffer[0];
+	char packet_internal_id = (char)buffer[1];
+	char packet_index = (char)buffer[2];
 
 	// LogDebug("STATUS: %d; INTERNAL_ID: %d; INDEX: %d", packet_status, packet_internal_id, packet_index);
 
@@ -637,7 +619,8 @@ void close_connection(rt_client* client, bool send_packet)
 		send(client, short_to_bytes((short)RT_PACKET_DISCONNECT).data(), 2);
 	
 	Log("(%d) \"%s:%d\" disconnected", client->id, client->address, client->port);
-	clients.erase(client->id);
+	clients.erase(clients.find(client->id));
+	client = nullptr;
 }
 
 unsigned int RTServer::BytesInSec() { return bytesInSecFinal; }

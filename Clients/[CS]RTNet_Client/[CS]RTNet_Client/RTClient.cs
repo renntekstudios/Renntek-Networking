@@ -107,17 +107,17 @@ namespace RTNet
 		private Dictionary<short, UnhandledPacket> unhandledPackets = new Dictionary<short, UnhandledPacket>();
 		private byte[] SortData(byte[] buffer, int bytesRead)
 		{
-			short packet_status = BitConverter.ToInt16(buffer, 0);
-			short packet_internal_id = BitConverter.ToInt16(buffer, sizeof(short));
-			short packet_index = BitConverter.ToInt16(buffer, sizeof(short) * 2);
+			byte packet_status = buffer[0];
+			byte packet_internal_id = buffer[1];
+			byte packet_index = buffer[2];
 
 			// buffer = buffer.Take(bytesRead).Skip(sizeof(short) * 3).ToArray();
 			byte[] data = new byte[bytesRead];
 			for (int i = 0; i < bytesRead; i++)
-				data[i] = buffer[i + (sizeof(short) * 3)];
+				data[i] = buffer[i + 3];
 			// LogDebug("STATUS: " + packet_status + "; INTERNAL_ID: " + packet_internal_id + "; INDEX: " + packet_index);
 			
-			if(packet_status == -1)
+			if(packet_status == 1)
 			{
 				if(unhandledPackets.ContainsKey(packet_internal_id))
 				{
@@ -141,7 +141,7 @@ namespace RTNet
 					return new byte[0];
 				}
 			}
-			else if(packet_status == -2)
+			else if(packet_status == 2)
 			{
 				if(unhandledPackets.ContainsKey(packet_internal_id))
 				{
@@ -183,6 +183,7 @@ namespace RTNet
 			{
 				int bytesRead = Socket.EndReceiveFrom(result, ref _endpoint);
 				byte[] buffer = _buffer;
+				BeginReceive();
 				if (bytesRead > 0)
 				{
 					if (bytesRead == 3)
@@ -191,12 +192,10 @@ namespace RTNet
 						{
 							LogError("Server has invalid signature!");
 							Disconnect();
-							BeginReceive();
 							return;
 						}
 						OnConnected();
 						Status = RTConnectionStatus.Connecting;
-						BeginReceive();
 						return;
 					}
 
@@ -208,10 +207,7 @@ namespace RTNet
 
 					buffer = SortData(buffer, bytesRead);
 					if (buffer.Length == 0)
-					{
-						BeginReceive();
 						return;
-					}
 
 					short packetID = BitConverter.ToInt16(buffer, 0);
 					// LogDebug("Got \"" + packetID + "\" packet (" + buffer.Length + " bytes)");
@@ -237,19 +233,15 @@ namespace RTNet
 			catch(Exception e)
 			{
 				if (!Timeout && e.Message.Contains("A blocking operation"))
-				{
-					BeginReceive();
 					return;
-				}
 				LogError("Could not receive from server, \"" + e.GetType().Name + "\" exception - " + e.Message + "\n\t" + e.StackTrace);
 				// Disconnect();
 			}
-			BeginReceive();
 		}
 
-		private short GetInternalPacketID()
+		private byte GetInternalPacketID()
 		{
-			short index = 0;
+			byte index = 0;
 			while (internalIDs.Contains(++index)) ;
 			return index;
 		}
@@ -262,11 +254,11 @@ namespace RTNet
 				LogWarning("Tried sending packet when disconnected from server");
 				return -1;
 			}
-			short internalPacketID = GetInternalPacketID();
+			byte internalPacketID = GetInternalPacketID();
 			List<byte> toSend = new List<byte>();
-			toSend.AddRange(BitConverter.GetBytes((short)-3));
-			toSend.AddRange(BitConverter.GetBytes(internalPacketID));
-			toSend.AddRange(BitConverter.GetBytes((short)0));
+			toSend.Add(3);
+			toSend.Add(internalPacketID);
+			toSend.Add(0);
 			toSend.AddRange(BitConverter.GetBytes((short)packetID));
 
 			int result = Socket.SendTo(toSend.ToArray(), EndPoint);
@@ -282,7 +274,7 @@ namespace RTNet
 				LogWarning("Tried sending packet when disconnected from server");
 				return -1;
 			}
-			short internalPacketID = GetInternalPacketID(), index = 0;
+			byte internalPacketID = GetInternalPacketID(), index = 0;
 			List<byte> toSend = BitConverter.GetBytes(packetID).ToList();
 			toSend.AddRange(buffer);
 			buffer = toSend.ToArray();
@@ -295,9 +287,9 @@ namespace RTNet
 			{
 				while (buffer.Length > BufferSize - packetSize)
 				{
-					toSend.AddRange(BitConverter.GetBytes((short)-1));
-					toSend.AddRange(BitConverter.GetBytes(internalPacketID));
-					toSend.AddRange(BitConverter.GetBytes(index++));
+					toSend.Add(1);
+					toSend.Add(internalPacketID);
+					toSend.Add(index++);
 					toSend.AddRange(buffer.Take(BufferSize - packetSize));
 
 					Socket.SendTo(toSend.ToArray(), EndPoint);
@@ -310,16 +302,16 @@ namespace RTNet
 					toSend.Clear();
 					buffer = buffer.Skip(BufferSize - packetSize).ToArray();
 				}
-				toSend.AddRange(BitConverter.GetBytes((short)-2));
-				toSend.AddRange(BitConverter.GetBytes(internalPacketID));
-				toSend.AddRange(BitConverter.GetBytes(index++));
+				toSend.Add(2);
+				toSend.Add(internalPacketID);
+				toSend.Add(index++);
 				toSend.AddRange(buffer);
 			}
 			else
 			{
-				toSend.AddRange(BitConverter.GetBytes((short)-3));
-				toSend.AddRange(BitConverter.GetBytes(internalPacketID));
-				toSend.AddRange(BitConverter.GetBytes(index));
+				toSend.Add(3);
+				toSend.Add(internalPacketID);
+				toSend.Add(index++);
 				toSend.AddRange(buffer);
 			}
 

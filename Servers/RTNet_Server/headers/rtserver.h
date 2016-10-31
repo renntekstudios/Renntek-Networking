@@ -5,10 +5,18 @@
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#define PLATFORM_WINDOWS
+#elif defined(__APPLE__)
+#define PLATFORM_MAC
+#else
+#define PLATFORM_UNIX
+#endif
+
+#ifdef PLATFORM_WINDOWS
 typedef int socklen_t;
 #include <winsock2.h>
 #include "win_threading.h"
-#elif defined(__linux__) | defined(__APPLE__)
+#elif defined(PLATFORM_UNIX) || defined(PLATFORM_MAC)
 #include <unistd.h>
 #include <pthread.h>
 #include <arpa/inet.h>
@@ -21,6 +29,14 @@ typedef int socklen_t;
 #include <fcntl.h>
 #include <netdb.h>
 #include <errno.h>
+
+/*
+Supposedly only need the following, test this!
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+*/
 #endif
 
 using namespace std;

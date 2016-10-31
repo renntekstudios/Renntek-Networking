@@ -150,7 +150,7 @@ namespace RTNet
 					if (length == 0)
 						break;
 					type = (SerializeType)data[2];
-					Debug.Log("Length: " + length + "; Type: " + Enum.GetName(typeof(SerializeType), type));
+					// Debug.Log("Length: " + length + "; Type: " + Enum.GetName(typeof(SerializeType), type));
 					data = data.Skip(sizeof(short) + 1).ToArray();
 					switch(type)
 					{

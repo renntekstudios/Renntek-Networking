@@ -61,17 +61,11 @@
     <Reference Include="UnityEditor">
       <HintPath>Library\UnityAssemblies\UnityEditor.dll</HintPath>
     </Reference>
-    <Reference Include="RTNet_Client">
-      <HintPath>Assets\plugins\RTNet_Client.dll</HintPath>
-    </Reference>
     <Reference Include="RTNetClient_Unity">
-      <HintPath>Assets\plugins\RTNetClient_Unity.dll</HintPath>
+      <HintPath>Assets\Plugins\RTNetClient_Unity.dll</HintPath>
     </Reference>
     <Reference Include="RTNet_Client">
       <HintPath>Assets\Plugins\RTNet_Client.dll</HintPath>
-    </Reference>
-    <Reference Include="RTNetClient_Unity">
-      <HintPath>Assets\Plugins\RTNetClient_Unity.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
