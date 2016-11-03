@@ -54,6 +54,12 @@ namespace RTNet
 
 		char* address;
 		unsigned short port;
+
+		#ifdef PLATFORM_WINDOWS
+		SOCKET tcpSocket;
+		#else
+		int tcpSocket;
+		#endif
 	};
 
 	class RTServer

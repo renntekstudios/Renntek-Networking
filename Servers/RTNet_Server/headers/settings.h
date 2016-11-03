@@ -20,6 +20,7 @@ namespace RTNet
 		static int UDPPort;
 		static int TCPPort;
 		static int BufferSize;
+		static int BacklogSize;
 		static RT_UNKNOWN_BEHAVIOUR UnknownBehaviour;
 
 		static bool DebugMode;

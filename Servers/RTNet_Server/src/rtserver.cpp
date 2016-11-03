@@ -44,6 +44,7 @@ vector<rt_byte> unhandled_bytes;
 vector<rt_packet_id> sent_packet_ids;
 vector<unhandled_packet_t> unhandled_packets;
 
+void stop();
 void timer_loop();
 int send_all(rt_byte data[], size_t length);
 int send(rt_id client, rt_byte data[], size_t length);
@@ -98,6 +99,80 @@ unsigned short GetPacketID()
 	return id;
 }
 
+void handle_data_udp(rt_byte buffer[], int receive_length, struct sockaddr_in addr)
+{
+	int result = 0;
+	if(receive_length == 3 && buffer[0] == (char)17 && buffer[1] == (char)19 && buffer[2] == (char)RT_PACKET_DISCOVER)
+	{
+		// LogDebug("Got discover packet");
+		sendto(udp_socket, buffer, receive_length, 0, (struct sockaddr*)&addr, sizeof(addr));
+		return;
+	}
+	// LogDebug("Got %d bytes", receive_length);
+
+	rt_id client_id = -1;
+	rt_client* client;
+	char* address = inet_ntoa(addr.sin_addr);
+	unsigned short port = ntohs(addr.sin_port);
+	for(unsigned int i = 0;i < clients.size();i++)
+	{
+		if(inet_ntoa(clients[i].sock_addr.sin_addr) == address && clients[i].sock_addr.sin_port == addr.sin_port)
+		{
+			client_id = clients[i].id;
+			client = &clients[i];
+			break;
+		}
+	}
+
+	//new (or unknown?) client
+	if(client_id == -1)
+	{
+		client_id = GetID();
+		clients[client_id] = { };
+		clients[client_id].id = client_id;
+		clients[client_id].sock_addr = addr;
+		clients[client_id].connection_state = CONNECTING; // Wait for next packet to determine if actually connected or not
+		clients[client_id].address = address;
+		clients[client_id].port = port;
+		clients[client_id].tcpSocket = -1;
+		Log("New connection from \"%s:%d\" (%d)", address, port, client_id);
+		client = &clients[client_id];
+	}
+
+	rt_byte* data = new rt_byte[receive_length];
+	memcpy(data, buffer, receive_length);
+
+	// LogDebug("Received packet from \"%s:%d\" (%d)(%d bytes)", address, port, client_id, receive_length);
+	if(receive_length == 3)
+	{
+		if(data[0] != 17 || data[1] != 19)
+		{
+			LogError("A client tried connecting with an unknown signature (%d)", client_id);
+			delete[] data;
+			return;
+		}
+
+		client->signature = (RT_CLIENT_SIGNATURE)data[2];
+		char temp[] = { 17, 19, (char)RT_SIGNATURE_SERVER };
+		if((result = send_raw(client_id, temp, 3)) < 0)
+			LogError("Could not send initial data to client \"%d\" (%d)", client_id, result);
+		delete[] data;
+
+		int auth_data_length = 4;
+		char auth_data[auth_data_length];
+		vector<char> temp_auth = short_to_bytes((short)RT_PACKET_AUTH);
+		auth_data[0] = temp_auth[0];
+		auth_data[1] = temp_auth[1];
+		temp_auth = short_to_bytes(client_id);
+		auth_data[2] = temp_auth[0];
+		auth_data[3] = temp_auth[1];
+		send(&clients[client_id], auth_data, auth_data_length);
+		// LogDebug("Sent auth packet to \"%d\"", client_id);
+	}
+	else
+		handle_packet(client, data, receive_length);
+}
+
 void receive()
 {
 	int receive_length, result;
@@ -105,106 +180,118 @@ void receive()
 	socklen_t addrlen = sizeof(addr);
 	char buffer[Settings::BufferSize];
 	while(running)
-	{		
+	{
+		#ifdef PLATFORM_WINDOWS
+		Sleep((DWORD)RECEIVE_TIMEOUT);
+		#else
+		sleep(RECEIVE_TIMEOUT * 1000);
+		#endif
+
 		receive_length = recvfrom(udp_socket, buffer, Settings::BufferSize, 0, (struct sockaddr*)&addr, &addrlen);
 		if(receive_length <= 0)
 			continue;
 		bytesInSec += receive_length;
-
-		if(receive_length == 3 && buffer[0] == (char)17 && buffer[1] == (char)19 && buffer[2] == (char)RT_PACKET_DISCOVER)
-		{
-			// LogDebug("Got discover packet");
-			sendto(udp_socket, buffer, receive_length, 0, (struct sockaddr*)&addr, sizeof(addr));
-			continue;
-		}
-		// LogDebug("Got %d bytes", receive_length);
-
-		rt_id client_id = -1;
-		rt_client* client;
-		char* address = inet_ntoa(addr.sin_addr);
-		unsigned short port = ntohs(addr.sin_port);
-		for(unsigned int i = 0;i < clients.size();i++)
-		{
-			if(inet_ntoa(clients[i].sock_addr.sin_addr) == address && clients[i].sock_addr.sin_port == addr.sin_port)
-			{
-				client_id = clients[i].id;
-				client = &clients[i];
-				break;
-			}
-		}
-
-		//new (or unknown?) client
-		if(client_id == -1)
-		{
-			client_id = GetID();
-			clients[client_id] = { };
-			clients[client_id].id = client_id;
-			clients[client_id].sock_addr = addr;
-			clients[client_id].connection_state = CONNECTING; // Wait for next packet to determine if actually connected or not
-			clients[client_id].address = address;
-			clients[client_id].port = port;
-			Log("New connection from \"%s:%d\" (%d)", address, port, client_id);
-			client = &clients[client_id];
-		}
-
-		rt_byte* data = new rt_byte[receive_length];
-		memcpy(data, buffer, receive_length);
-
-		// LogDebug("Received packet from \"%s:%d\" (%d)(%d bytes)", address, port, client_id, receive_length);
-		if(receive_length == 3)
-		{
-			if(data[0] != 17 || data[1] != 19)
-			{
-				LogError("A client tried connecting with an unknown signature (%d)", client_id);
-				delete[] data;
-				continue;
-			}
-
-			client->signature = (RT_CLIENT_SIGNATURE)data[2];
-			char temp[] = { 17, 19, (char)RT_SIGNATURE_SERVER };
-			if((result = send_raw(client_id, temp, 3)) < 0)
-				LogError("Could not send initial data to client \"%d\" (%d)", client_id, result);
-			delete[] data;
-
-			int auth_data_length = 4;
-			char auth_data[auth_data_length];
-			vector<char> temp_auth = short_to_bytes((short)RT_PACKET_AUTH);
-			auth_data[0] = temp_auth[0];
-			auth_data[1] = temp_auth[1];
-			temp_auth = short_to_bytes(client_id);
-			auth_data[2] = temp_auth[0];
-			auth_data[3] = temp_auth[1];
-			send(&clients[client_id], auth_data, auth_data_length);
-			// LogDebug("Sent auth packet to \"%d\"", client_id);
-		}
-		else
-			handle_packet(client, data, receive_length);
+		handle_data_udp(buffer, receive_length, addr);
 	}
 }
 
-void tcp_receive()
+void handle_data_tcp(rt_client* client, rt_byte buffer[], int receive_length)
 {
+	if(receive_length == 3)
+	{
+		if(buffer[0] != (rt_byte)17)
+		{
+			LogWarning("Invalid signature on TCP");
+			return;
+		}
+		rt_id id = bytes_to_short(buffer + 1);
+		if(clients.find(id) != clients.end())
+		{
+			client = &clients[id];
+			LogDebug("Client \"%s\"(%d) connected via TCP", client->address, client->id);
+		}
+		else
+			LogWarning("Client tried connecting to TCP with incorrect id \"%s\"", id);
+		return;
+	}
+	// LogDebug("Received %d bytes from \"%s\"", receive_length, client->address);
+}
 
+void tcp_receive(rt_client* c)
+{
+	while(running)
+	{
+		#ifdef PLATFORM_WINDOWS
+		Sleep((DWORD)RECEIVE_TIMEOUT);
+		#else
+		sleep(RECEIVE_TIMEOUT * 1000);
+		#endif
+
+		rt_byte buffer[Settings::BufferSize];
+		// LogDebug("TCP receive for %d", c->tcpSocket);
+		int r = recv(c->tcpSocket, buffer, Settings::BufferSize, 0);
+		// LogDebug("TCP received %d bytes", r);
+		if(r <= 0)
+			continue;
+		handle_data_tcp(c, buffer, r);
+
+		/*
+		if(buffer[0] == .. && buffer[1] == .. && buffer[2] == ..)
+		{
+			rt_id id = bytes_to_short(buffer);
+			clients[id]->tcpSocket = c->tcpSocket;
+			delete c;
+		}
+		*/
+	}
 }
 
 void tcp_accept()
 {
-	return;
-
-	// CURRENTLY DOESN'T WORK
 	while(running)
 	{
-		sockaddr addr;
-		#ifdef _WIN32
-		SOCKET a = accept(tcp_socket, &addr, NULL);
-		if(a == INVALID_SOCKET)
+		try
 		{
-			LogError("Failed to accept socket - %d", WSAGetLastError());
-			continue;
-		}
-		#else
+			#ifdef PLATFORM_WINDOWS
+			Sleep((DWORD)RECEIVE_TIMEOUT);
+			#else
+			sleep(RECEIVE_TIMEOUT * 1000);
+			#endif
 
-		#endif
+			sockaddr addr;
+			#ifdef _WIN32
+			SOCKET a = accept(tcp_socket, NULL, NULL);
+			int wsa = WSAGetLastError();
+			if(wsa == 10035)
+				continue;
+			if(a == INVALID_SOCKET)
+			{
+				LogWarning("Failed to accept tcp socket - %d", wsa);
+				continue;
+			}
+			#else
+			int a = accept(tcp_socket, (struct sockaddr*)&addr, (socklen_t*)sizeof(addr));
+			if(a == -1)
+			{
+				LogWarning("Failed to accept tcp socket");
+				continue;
+			}
+			#endif
+
+			LogDebug("Accepted TCP client");
+			rt_client* c = new rt_client();
+			#ifdef PLATFORM_WINDOWS
+			c->tcpSocket = a;
+			#else
+			c->tcpSocket = a;
+			#endif
+			// c->tcpSocket = a;
+			tcp_receive_threads.push_back(new thread(tcp_receive, c));
+		}
+		catch(exception e)
+		{
+			LogWarning("Failed to accept tcp client - %s", e.what());
+		}
 	}
 }
 
@@ -218,23 +305,27 @@ int create_socket(int* s, int protocol)
 	if(protocol == 0) // udp
 		result = (*s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 	else if(protocol == 1) // tcp
-		result = (*s = socket(AF_INET, SOCK_STREAM, 0));
+		result = (*s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
 
-	#ifdef _WIN32
+	#ifdef PLATFORM_WINDOWS
 	if(result == INVALID_SOCKET)
 	{
 		LogError("Could not create %s socket - %d", (protocol == 0 ? "UDP" : (protocol == 1 ? "TCP" : "UNKNOWN_PROTOCOL")), WSAGetLastError());
 		return result;
 	}
-	DWORD nonBlocking = 1;
-	if(ioctlsocket(*s, FIONBIO, &nonBlocking) != 0)
-		LogWarning("Failed to set socket as non-blocking");
 	#else
 	if(result < 0)
 	{
 		LogError("Could not create %s socket - %d", (protocol == 0 ? "UDP" : (protocol == 1 ? "TCP" : "UNKNOWN_PROTOCOL")), s);
 		return result;
 	}
+	#endif
+
+	#ifdef PLATFORM_WINDOWS
+	DWORD nonBlocking = 1;
+	if(ioctlsocket(*s, FIONBIO, &nonBlocking) != 0)
+		LogWarning("Failed to set socket as non-blocking - %d", WSAGetLastError());
+	#else
 	int nonBlocking = 1;
 	if(fcntl(*s, F_SETFL, O_NONBLOCK, nonBlocking) == -1)
 		LogWarning("Failed to set socket as non-blocking");
@@ -242,14 +333,14 @@ int create_socket(int* s, int protocol)
 	return 0;
 }
 
-#ifdef _WIN32
+#ifdef PLATFORM_WINDOWS
 void set_timeout(SOCKET* s)
 #else
 void set_timeout(int* s)
 #endif
 {
 	int result;
-	#ifdef _WIN32
+	#ifdef PLATFORM_WINDOWS
 	int timeout = RECEIVE_TIMEOUT;
 	if((result = setsockopt(*s, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout))) != 0)
 	#else
@@ -266,7 +357,7 @@ RTServer::RTServer()
 	Utils::SetTitle(string("RennTek Networking Server v") + Settings::Version);
 
 	int result = 0;
-	#ifdef _WIN32
+	#ifdef PLATFORM_WINDOWS
 	if(WSAStartup(MAKEWORD(2,2), &wsa) != 0)
 	{
 		LogError("Could not start RTServer - WSA_STARTUP_%d", WSAGetLastError());
@@ -277,7 +368,8 @@ RTServer::RTServer()
 		LogDebug("Created UDP socket on port %d", Settings::UDPPort);
 	else
 		return;
-	if(create_socket(&tcp_socket, 0) == 0)
+
+	if(create_socket(&tcp_socket, 1) == 0)
 		LogDebug("Created TCP socket on port %d", Settings::TCPPort);
 	else
 		return;
@@ -303,9 +395,9 @@ RTServer::RTServer()
 		return;
 	}
 	else
-		listen(tcp_socket, 3);
+		listen(tcp_socket, Settings::BacklogSize);
 
-	set_timeout(&udp_socket);
+	// set_timeout(&udp_socket);
 	// set_timeout(&tcp_socket);
 	
 	running = true;
@@ -314,7 +406,7 @@ RTServer::RTServer()
 	tcp_accept_thread = new thread(tcp_accept);
 }
 
-void RTServer::Stop()
+void stop()
 {
 	if(!running)
 		return;
@@ -322,7 +414,7 @@ void RTServer::Stop()
 	receive_thread->join();
 	tcp_accept_thread->join();
 	timer_thread->join();
-	// delete receive_thread;
+	delete receive_thread;
 	#ifdef _WIN32
 	closesocket(udp_socket);
 	closesocket(tcp_socket);
@@ -332,6 +424,11 @@ void RTServer::Stop()
 	close(tcp_socket);
 	#endif
 	Log("Server stopped");
+}
+
+void RTServer::Stop()
+{
+	stop();
 }
 
 RTServer::~RTServer()
@@ -619,6 +716,16 @@ void close_connection(rt_client* client, bool send_packet)
 		send(client, short_to_bytes((short)RT_PACKET_DISCONNECT).data(), 2);
 	
 	Log("(%d) \"%s:%d\" disconnected", client->id, client->address, client->port);
+
+	if(client->tcpSocket < 0)
+	{
+		#ifdef PLATFORM_WINDOWS
+		closesocket(client->tcpSocket);
+		#else
+		close(client->tcpSocket);
+		#endif
+	}
+
 	clients.erase(clients.find(client->id));
 	client = nullptr;
 }

@@ -20,6 +20,10 @@ namespace RTNet
 		Disconnect = 1,
 		Auth = 2
 	}
+	public enum RTPacketIDReliable : short
+	{
+
+	}
 
 	public class RTClient
 	{
@@ -82,10 +86,11 @@ namespace RTNet
 			ReliableSocket = new TcpClient();
 			if (Timeout)
 				ReliableSocket.ReceiveTimeout = ReceiveTimeout;
+			ReliableSocket.Client.Blocking = false;
 
 			Status = RTConnectionStatus.Connecting;
 
-			// ReliableSocket.Connect(ip, tcpPort == 0 ? port + 1 : tcpPort);
+			ReliableSocket.Connect(ip, tcpPort == 0 ? port + 1 : tcpPort);
 
 			byte[] signature = { 17, 19, (byte)RTClientSignatures.CSharp };
 			Socket.SendTo(signature, EndPoint);
@@ -218,10 +223,16 @@ namespace RTNet
 							Disconnect(false);
 							break;
 						case RTPacketID.Auth:
-							ID = BitConverter.ToInt16(buffer, 0);
-							Status = RTConnectionStatus.Connected;
-							Log("Connected to server (ID: " + ID + ")");
-							break;
+							{
+								ID = BitConverter.ToInt16(buffer, 0);
+								Status = RTConnectionStatus.Connected;
+								List<byte> tosend = new List<byte>();
+								tosend.Add((byte)17);
+								tosend.AddRange(BitConverter.GetBytes(ID));
+								ReliableSocket.GetStream().Write(tosend.ToArray(), 0, tosend.Count);
+								Log("Connected to server (ID: " + ID + ")");
+								break;
+							}
 						default:
 							HandlePacket(packetID, buffer);
 							break;
@@ -328,6 +339,20 @@ namespace RTNet
 		private int SendRaw(byte[] buffer)
 		{
 			return Socket.SendTo(buffer, EndPoint);
+		}
+
+		public void SendReliable(RTPacketIDReliable packetID) { SendReliable((short)packetID); }
+		public void SendReliable(short packetID)
+		{
+			ReliableSocket.GetStream().Write(BitConverter.GetBytes(packetID), 0, sizeof(short));
+		}
+
+		public void SendReliable(RTPacketIDReliable packetID, byte[] buffer) { SendReliable((short)packetID, buffer); }
+		public void SendReliable(short packetID, byte[] buffer)
+		{
+			List<byte> tosend = buffer.ToList();
+			tosend.InsertRange(0, BitConverter.GetBytes(packetID));
+			ReliableSocket.GetStream().Write(tosend.ToArray(), 0, tosend.Count);
 		}
 
 		internal protected virtual void HandlePacket(short packetID, byte[] data) { }

@@ -8,6 +8,7 @@
 #define DEFAULT_UDP_PORT 4434
 #define DEFAULT_TCP_PORT 4435
 #define DEFAULT_BUFFERSIZE 512
+#define DEFAULT_BACKLOGSIZE 10
 
 using namespace std;
 using namespace RTNet;
@@ -23,6 +24,7 @@ const string Settings::Version = "0.1";
 int Settings::UDPPort = DEFAULT_UDP_PORT;
 int Settings::TCPPort = DEFAULT_TCP_PORT;
 int Settings::BufferSize = DEFAULT_BUFFERSIZE;
+int Settings::BacklogSize = DEFAULT_BACKLOGSIZE;
 bool Settings::DebugMode = false;
 RT_UNKNOWN_BEHAVIOUR Settings::UnknownBehaviour = RT_BEHAVIOUR_ALL;
 
@@ -60,7 +62,8 @@ bool Settings::Read(string path)
 	// variable = GenericReaader.Read("KEY", default_value);
 	UDPPort = _reader.Read("UDP Port", DEFAULT_UDP_PORT);
 	TCPPort = _reader.Read("TCP Port", DEFAULT_TCP_PORT);
-	BufferSize = _reader.Read("Buffer Size", 512);
+	BufferSize = _reader.Read("Buffer Size", DEFAULT_BUFFERSIZE);
+	BacklogSize = _reader.Read("Backlog Size", DEFAULT_BACKLOGSIZE);
 	DebugMode = _reader.Read("Debug Mode", false);
 	UnknownBehaviour = (RT_UNKNOWN_BEHAVIOUR)_reader.Read("Unknown Behaviour", (int)RT_BEHAVIOUR_ALL);
 
@@ -75,6 +78,7 @@ bool Settings::Read(string path)
 	LogDebug("UDP Port: %d", UDPPort);
 	LogDebug("TCP Port: %d", TCPPort);
 	LogDebug("Buffer Size: %d", BufferSize);
+	LogDebug("Backlog Size: %d", BacklogSize);
 	LogDebug("Unknown Behaviour: %s", (UnknownBehaviour == (int)RT_BEHAVIOUR_OTHERS ? "others" : (UnknownBehaviour == (int)RT_BEHAVIOUR_ALL ? "all" : "unknown")));
 	return true;
 }
@@ -102,6 +106,7 @@ void Settings::Save(string path)
 	_reader.Write("UDP Port", UDPPort);
 	_reader.Write("TCP Port", TCPPort);
 	_reader.Write("Buffer Size", BufferSize);
+	_reader.Write("Backlog Size", BacklogSize);
 
 	_reader.WriteLine();
 	_reader.Comment("The behaviour used when an unknown packet is received");
