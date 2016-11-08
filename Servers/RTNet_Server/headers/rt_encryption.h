@@ -7,7 +7,7 @@ namespace RTNet
     class RTEncryption
     {
     public:
-        static rt_byte* Encrypt(rt_byte* input, int length);
+        static rt_byte* Encrypt(rt_byte* input, int length, int* outLength);
         static rt_byte* Decrypt(rt_byte* input, int length, int* outLength);
     };
 }
