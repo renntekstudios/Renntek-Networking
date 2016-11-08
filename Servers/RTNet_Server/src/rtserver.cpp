@@ -8,6 +8,8 @@
 #include "rtserver.h"
 #include "settings.h"
 #include "utils.h"
+#include "rt_encryption.h"
+#include "rt_compression.h"
 
 #define RECEIVE_TIMEOUT (1000 / 60) // 60Hz
 #define PACKET_SIZE (sizeof(unsigned char) * 3)
@@ -138,9 +140,9 @@ void handle_data_udp(rt_byte buffer[], int receive_length, struct sockaddr_in ad
 		Log("New connection from \"%s:%d\" (%d)", address, port, client_id);
 		client = &clients[client_id];
 	}
-
-	rt_byte* data = new rt_byte[receive_length];
-	memcpy(data, buffer, receive_length);
+	
+	rt_byte* data = RTCompression::Decompress(buffer, receive_length, &receive_length);
+	data = RTEncryption::Decrypt(data, receive_length, &receive_length);
 
 	// LogDebug("Received packet from \"%s:%d\" (%d)(%d bytes)", address, port, client_id, receive_length);
 	if(receive_length == 3)
@@ -448,16 +450,19 @@ rt_client* get_client(rt_id client_id)
 	return nullptr;
 }
 
-int send(rt_client* client, rt_byte data[], size_t length)
+int send(rt_client* client, rt_byte buffer[], size_t length)
 {
 	try
 	{
-		size_t data_length = length;
 		if(client == nullptr)
 		{
 			LogWarning("Could not send data to client - client is null");
 			return -2;
 		}
+		size_t data_length;
+		rt_byte* data = RTEncryption::Encrypt(buffer, length, &data_length);
+		data = RTCompression::Compress(data, data_length, &data_length);
+		
 		sockaddr_in sock_addr = client->sock_addr;
 		socklen_t socket_length = sizeof(sock_addr);
 		
