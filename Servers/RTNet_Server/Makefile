@@ -12,7 +12,7 @@ CFLAGS_EXEC = $(DIALECT) $(INCLUDES) $(OPTIMIZATION)
 
 OBJ = bin/obj
 
-SOURCE = src/main.cpp src/logger.cpp src/generic_reader.cpp src/settings.cpp src/rtserver.cpp
+SOURCE = src/main.cpp src/logger.cpp src/generic_reader.cpp src/settings.cpp src/rtserver.cpp src/rt_compression.cpp src/rt_encryption.cpp
 DEPS = ${SOURCE:%.cpp=$(OBJ)/%.o}
 
 UNAME_S := $(shell uname -s)
