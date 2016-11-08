@@ -7,7 +7,7 @@ namespace RTNet
     class RTCompression
     {
     public:
-        static rt_byte* Compress(rt_byte* input, int length);
+        static rt_byte* Compress(rt_byte* input, int length, int* outLength);
         static rt_byte* Decompress(rt_byte* input, int length, int* outLength);
     };
 }
