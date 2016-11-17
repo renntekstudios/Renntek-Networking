@@ -1,14 +1,15 @@
 #include <string>
 #include <algorithm>
+#include <selene.h>
 #include "settings.h"
 #include "logger.h"
 #include "rtserver.h"
 
 using namespace std;
 using namespace RTNet;
+using namespace sel;
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
+#ifdef PLATFORM_WINDOWS
 #include <windows.h>
 BOOL WINAPI handle_exit(DWORD event);
 #else
@@ -21,18 +22,20 @@ RTServer* server;
 
 int main(int argc, char** argv)
 {
+	cout << "Reading settings" << endl;
 	Settings::Read(Settings::ResourceDir + "settings.ini");
 
-	#if defined(_WIN32)
+	#if defined(PLATFORM_WINDOWS)
 	if(!SetConsoleCtrlHandler((PHANDLER_ROUTINE)handle_exit, TRUE))
 		LogWarning("Could not set console control handler");
-	#elif defined(__linux__)
+	#elif defined(PLATFORM_LINUX)
 	signal(SIGHUP, handle_exit);
 	#endif
 
 	Log("Starting RTNet server v%s", Settings::Version.c_str());
 
 	server = new RTServer();
+
 	string line, lower;
 	while(server->isRunning())
 	{
@@ -56,7 +59,7 @@ int main(int argc, char** argv)
 	}
 	stop();
 
-	#ifdef _WIN32
+	#ifdef PLATFORM_WINDOWS
 	cout << endl << "Press any key to exit..." << endl;
 	getchar();
 	#endif
@@ -70,20 +73,9 @@ void stop(int error_code)
 	Settings::Save();
 }
 
-#ifdef _WIN32
+#ifdef PLATFORM_WINDOWS
 BOOL WINAPI handle_exit(DWORD event)
 {
-	/*
-	switch(event)
-	{
-	case CTRL_C_EVENT: MessageBox(NULL, "CTRL+C", "Event Caught!", MB_OK); break;
-	case CTRL_BREAK_EVENT: MessageBox(NULL, "CTRL+BREAK", "Event Caught!", MB_OK); break;
-	case CTRL_CLOSE_EVENT: MessageBox(NULL, "CLOSE EVENT", "Event Caught!", MB_OK); break;
-	case CTRL_LOGOFF_EVENT: MessageBox(NULL, "LOGOFF EVENT", "Event Caught!", MB_OK); break;
-	case CTRL_SHUTDOWN_EVENT: MessageBox(NULL, "SHUTDOWN EVENT", "Event Caught!", MB_OK); break;
-	default: MessageBox(NULL, "UNKNOWN EVENT", "Event Caught!", MB_OK); break;
-	}
-	*/
 	stop(0);
 	return true;
 }

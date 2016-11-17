@@ -3,15 +3,6 @@
 #include "logger.h"
 #include "packet.h"
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define PLATFORM_WINDOWS
-#elif defined(__APPLE__)
-#define PLATFORM_MAC
-#else
-#define PLATFORM_UNIX
-#endif
-
 #ifdef PLATFORM_WINDOWS
 typedef int socklen_t;
 #include <winsock2.h>

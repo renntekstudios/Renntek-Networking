@@ -4,6 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <exception>
+#include "logger.h"
 
 using namespace std;
 
@@ -29,6 +30,8 @@ namespace RTNet
 			transform(value.begin(), value.end(), value.begin(), ::tolower);
 			if(value == "true" || value == "1")
 				return true;
+			else if(value == "false" || value == "0")
+				return false;
 			return defaultValue;
 		}
 

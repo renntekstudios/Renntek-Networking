@@ -11,14 +11,16 @@
 #include "enums.h"
 #include "logger.h"
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
+#ifdef PLATFORM_WINDOWS
 #include <windows.h>
 #include <winsock2.h>
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
 #endif
+
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 #define TYPE_STRING "s"
 #define TYPE_FLOAT "f"
@@ -40,7 +42,7 @@ namespace RTNet
             struct stat st;
             if(stat(dir.c_str(), &st) != 0)
             {
-                #ifdef _WIN32
+                #ifdef PLATFORM_WINDOWS
                 int result = CreateDirectory(dir.c_str(), NULL) ? 0 : -1;
                 #else
                 int result = mkdir(dir.c_str(), 777);
@@ -51,6 +53,53 @@ namespace RTNet
                     return false;
             }
             return false;
+        }
+
+        // reference to http://stackoverflow.com/questions/306533/how-do-i-get-a-list-of-files-in-a-directory-in-c
+        static vector<string> GetFilesInDir(string directory)
+        {
+            vector<string> files;
+            if(directory.empty())
+                return files;
+            #ifdef PLATFORM_WINDOWS
+            HANDLE dir;
+            WIN32_FIND_DATA file_data;
+
+            if((dir = FindFirstFile((directory + "/*").c_str(), &file_data)) == INVALID_HANDLE_VALUE)
+                return files;
+
+            do
+            {
+                const string file_name = file_data.cFileName;
+                const bool is_directory = (file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+                if(file_name[0] == '.' || is_directory)
+                    continue;
+                files.push_back(file_name);
+            } while (FindNextFile(dir, &file_data));
+
+            FindClose(dir);
+            #else
+            DIR* dir;
+            class dirent* ent;
+            class stat st;
+
+            dir = opendir(directory);
+            while((ent = readdir(dir)) != NULL)
+            {
+                const string file_name = ent->d_name;
+
+                if(file_name[0] == '.' || stat(file_name.c_str(), &st) == -1)
+                    continue;
+                const bool is_directory = (st.st_mode & S_IFDIR) != 0;
+
+                if(is_directory)
+                    continue;
+                files.push_back(file_name);
+            }
+            closedir(dir);
+            #endif
+            return files;
         }
 
         static int ArrayLength(float* array)
@@ -152,9 +201,8 @@ namespace RTNet
             stringstream ss(stringstream::in | stringstream::out);
             if(os_specific)
             {
-                #ifdef _WIN32
+                #ifdef PLATFORM_WINDOWS
                 LPSTR error_string = NULL;
-                int size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, 0, error, 0, (LPSTR)&error_string, 0, 0);
                 ss << error_string;
                 LocalFree(error_string);
                 #else

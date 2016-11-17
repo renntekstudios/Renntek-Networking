@@ -1,7 +1,6 @@
-#ifdef _WIN32
+#ifdef PLATFORM_WINDOWS
 #ifndef _WIN_THREADING_H_
 #define _WIN_THREADING_H_
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <process.h>
 #include <memory>

@@ -19,16 +19,20 @@ extern T Read(string key, T defaultValue);
 string Replace(const string& original, const char a, const char b);
 
 const string Settings::ResourceDir = "./";
+const string Settings::PluginDir = "./Plugins/";
 const string Settings::Version = "0.1";
+const string Settings::ShaderDir = "./Shaders/";
 
 int Settings::UDPPort = DEFAULT_UDP_PORT;
 int Settings::TCPPort = DEFAULT_TCP_PORT;
 int Settings::BufferSize = DEFAULT_BUFFERSIZE;
 int Settings::BacklogSize = DEFAULT_BACKLOGSIZE;
 bool Settings::DebugMode = false;
+bool Settings::Timestamp = true;
+bool Settings::DebugLine = true;
 RT_UNKNOWN_BEHAVIOUR Settings::UnknownBehaviour = RT_BEHAVIOUR_ALL;
 
-const vector<string> Settings::importantDirectories = {  };
+const vector<string> Settings::importantDirectories = { "Plugins", "Shaders" };
 
 bool Settings::_initialized = false;
 GenericReader Settings::_reader;
@@ -65,6 +69,8 @@ bool Settings::Read(string path)
 	BufferSize = _reader.Read("Buffer Size", DEFAULT_BUFFERSIZE);
 	BacklogSize = _reader.Read("Backlog Size", DEFAULT_BACKLOGSIZE);
 	DebugMode = _reader.Read("Debug Mode", false);
+	Timestamp = _reader.Read("Timestamp", true);
+	DebugLine = _reader.Read("Debug Line", true);
 	UnknownBehaviour = (RT_UNKNOWN_BEHAVIOUR)_reader.Read("Unknown Behaviour", (int)RT_BEHAVIOUR_ALL);
 
 	if(UDPPort < 0 || UDPPort > 65535)
@@ -79,6 +85,8 @@ bool Settings::Read(string path)
 	LogDebug("TCP Port: %d", TCPPort);
 	LogDebug("Buffer Size: %d", BufferSize);
 	LogDebug("Backlog Size: %d", BacklogSize);
+	LogDebug("Timestamp: %s", Timestamp ? "true" : "false");
+	LogDebug("Debug Line: %s", DebugLine ? "true" : "false");
 	LogDebug("Unknown Behaviour: %s", (UnknownBehaviour == (int)RT_BEHAVIOUR_OTHERS ? "others" : (UnknownBehaviour == (int)RT_BEHAVIOUR_ALL ? "all" : "unknown")));
 	return true;
 }
@@ -117,8 +125,10 @@ void Settings::Save(string path)
 
 	_reader.WriteLine();
 
-	_reader.Heading("Debugging");
+	_reader.Heading("Misc.");
 	_reader.Write("Debug Mode", DebugMode);
+	_reader.Write("Timestamp", Timestamp);
+	_reader.Write("Debug Line", DebugLine);
 
 	_reader.WriteLine();
 	_reader.WriteLine();

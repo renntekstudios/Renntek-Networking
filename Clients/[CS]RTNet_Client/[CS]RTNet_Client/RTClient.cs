@@ -28,7 +28,7 @@ namespace RTNet
 	public class RTClient
 	{
 		private static Type classType;
-		private enum RTClientSignatures : byte { Server = 99, CSharp = 1 }
+		private enum RTClientSignatures : byte { Server = 99, CSharp = 1, CPlusPlus = 2 }
 
 		private const int ReceiveTimeout = 30000;
 		private int bufferSize = 512;

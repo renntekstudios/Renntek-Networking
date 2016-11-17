@@ -2,18 +2,24 @@
 #include <math.h>
 #include <thread>
 #include <stdio.h>
+#include <selene.h>
 #include <algorithm>
 #include <exception>
 #include <sys/time.h>
 #include "rtserver.h"
 #include "settings.h"
 #include "utils.h"
+<<<<<<< HEAD
 #include "rt_encryption.h"
 #include "rt_compression.h"
+=======
+#include "world.h"
+>>>>>>> Made changes to server
 
 #define RECEIVE_TIMEOUT (1000 / 60) // 60Hz
 #define PACKET_SIZE (sizeof(unsigned char) * 3)
 
+using namespace sel;
 using namespace std;
 using namespace std::chrono;
 using namespace RTNet;
@@ -41,6 +47,8 @@ thread* receive_thread;
 thread* tcp_accept_thread;
 vector<thread*> tcp_receive_threads;
 
+World* world;
+vector<State*> luaStates;
 map<rt_id, rt_client> clients;
 vector<rt_byte> unhandled_bytes;
 vector<rt_packet_id> sent_packet_ids;
@@ -48,6 +56,8 @@ vector<unhandled_packet_t> unhandled_packets;
 
 void stop();
 void timer_loop();
+void LoadPlugins();
+void DisablePlugins();
 int send_all(rt_byte data[], size_t length);
 int send(rt_id client, rt_byte data[], size_t length);
 int send_raw(rt_id client, rt_byte data[], size_t length);
@@ -113,7 +123,7 @@ void handle_data_udp(rt_byte buffer[], int receive_length, struct sockaddr_in ad
 	// LogDebug("Got %d bytes", receive_length);
 
 	rt_id client_id = -1;
-	rt_client* client;
+	rt_client* client = nullptr;
 	char* address = inet_ntoa(addr.sin_addr);
 	unsigned short port = ntohs(addr.sin_port);
 	for(unsigned int i = 0;i < clients.size();i++)
@@ -139,6 +149,9 @@ void handle_data_udp(rt_byte buffer[], int receive_length, struct sockaddr_in ad
 		clients[client_id].tcpSocket = -1;
 		Log("New connection from \"%s:%d\" (%d)", address, port, client_id);
 		client = &clients[client_id];
+
+		for(unsigned int i = 0; i < luaStates.size(); i++)
+			(*luaStates[i])["clientConnected"](client);
 	}
 	
 	rt_byte* data = RTCompression::Decompress(buffer, receive_length, &receive_length);
@@ -177,7 +190,7 @@ void handle_data_udp(rt_byte buffer[], int receive_length, struct sockaddr_in ad
 
 void receive()
 {
-	int receive_length, result;
+	int receive_length;
 	struct sockaddr_in addr;
 	socklen_t addrlen = sizeof(addr);
 	char buffer[Settings::BufferSize];
@@ -260,7 +273,6 @@ void tcp_accept()
 			sleep(RECEIVE_TIMEOUT * 1000);
 			#endif
 
-			sockaddr addr;
 			#ifdef _WIN32
 			SOCKET a = accept(tcp_socket, NULL, NULL);
 			int wsa = WSAGetLastError();
@@ -272,6 +284,7 @@ void tcp_accept()
 				continue;
 			}
 			#else
+			sockaddr addr;
 			int a = accept(tcp_socket, (struct sockaddr*)&addr, (socklen_t*)sizeof(addr));
 			if(a == -1)
 			{
@@ -303,14 +316,14 @@ int create_socket(SOCKET* s, int protocol)
 int create_socket(int* s, int protocol)
 #endif
 {
-	int result;
+	int result = -1;
 	if(protocol == 0) // udp
 		result = (*s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
 	else if(protocol == 1) // tcp
 		result = (*s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
 
 	#ifdef PLATFORM_WINDOWS
-	if(result == INVALID_SOCKET)
+	if((unsigned int)result == INVALID_SOCKET)
 	{
 		LogError("Could not create %s socket - %d", (protocol == 0 ? "UDP" : (protocol == 1 ? "TCP" : "UNKNOWN_PROTOCOL")), WSAGetLastError());
 		return result;
@@ -401,18 +414,26 @@ RTServer::RTServer()
 
 	// set_timeout(&udp_socket);
 	// set_timeout(&tcp_socket);
+
+	LoadPlugins();
 	
 	running = true;
 	receive_thread = new thread(receive);
 	timer_thread = new thread(timer_loop);
 	tcp_accept_thread = new thread(tcp_accept);
+	world = new World();
 }
 
 void stop()
 {
 	if(!running)
 		return;
+
+	DisablePlugins();
+
 	running = false;
+	if(world != nullptr)
+		delete world;
 	receive_thread->join();
 	tcp_accept_thread->join();
 	timer_thread->join();
@@ -444,7 +465,7 @@ int RTServer::Send(rt_client* client, rt_byte data[], size_t length) { return se
 
 rt_client* get_client(rt_id client_id)
 {
-	for(int i = 0;i < clients.size();i++)
+	for(unsigned int i = 0;i < clients.size();i++)
 		if(clients[i].id == client_id)
 			return &clients[i];
 	return nullptr;
@@ -471,8 +492,8 @@ int send(rt_client* client, rt_byte buffer[], size_t length)
 		char index = 0;
 		sent_packet_ids.push_back(packet_id);
 
-		char* address = inet_ntoa(sock_addr.sin_addr);
-		unsigned short port = ntohs(sock_addr.sin_port);
+		// char* address = inet_ntoa(sock_addr.sin_addr);
+		// unsigned short port = ntohs(sock_addr.sin_port);
 
 		vector<rt_byte> temp;
 		if(data_length > Settings::BufferSize - PACKET_SIZE)
@@ -547,8 +568,7 @@ int send(rt_id client_id, rt_byte data[], size_t length)
 
 int send_raw(rt_id client_id, rt_byte data[], size_t length)
 {
-	int index = -1;
-	for(int i = 0;i < clients.size();i++)
+	for(unsigned int i = 0;i < clients.size();i++)
 	{
 		if(clients[i].id == client_id)
 			return send_raw(&clients[i], data, length);
@@ -558,7 +578,7 @@ int send_raw(rt_id client_id, rt_byte data[], size_t length)
 
 int send_others(rt_id sender, rt_byte data[], size_t length)
 {
-	int result;
+	int result = -1;
 	for(unsigned int i = 0;i < clients.size();i++)
 	{
 		if(clients[i].id != sender)
@@ -569,7 +589,7 @@ int send_others(rt_id sender, rt_byte data[], size_t length)
 
 int send_others(rt_client* sender, rt_byte data[], size_t length)
 {
-	int result;
+	int result = -1;
 	for(unsigned int i = 0;i < clients.size();i++)
 	{
 		if(clients[i].id != sender->id)
@@ -580,7 +600,7 @@ int send_others(rt_client* sender, rt_byte data[], size_t length)
 
 int send_all(rt_byte data[], size_t length)
 {
-	int result;
+	int result = -1;
 	for(unsigned int i = 0;i < clients.size();i++)
 		result = send(&clients[i], data, length);
 	return result;
@@ -608,7 +628,7 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 	unsigned int data_length = length - PACKET_SIZE;
 	rt_byte* data = new rt_byte[data_length];
 	vector<rt_byte> v_data(data_length);
-	for(int i = 0;i < data_length;i++)
+	for(unsigned int i = 0;i < data_length;i++)
 		v_data[i] = data[i] = buffer[i + PACKET_SIZE];
 
 	int index = -1;
@@ -659,7 +679,7 @@ void handle_packet(rt_client* client, rt_byte* buffer, size_t length)
 		if(index >= 0)
 		{
 			client->unhandled_packets[index]->bytes[packet_index] = v_data; // .insert(client->unhandled_packets[index]->bytes.begin() + (int)packet_index, pair<int, vector<rt_byte>>(packet_index, v_data));
-			int expected = client->unhandled_packets[index]->expected = packet_index + 1;
+			unsigned int expected = client->unhandled_packets[index]->expected = packet_index + 1;
 			if(expected > 0 && client->unhandled_packets[index]->bytes.size() == expected)
 			{
 				client->unhandled_packets[index]->get_final_buffer(&data, &data_length);
@@ -719,6 +739,9 @@ void close_connection(rt_client* client, bool send_packet)
 		return;
 	if(send_packet)
 		send(client, short_to_bytes((short)RT_PACKET_DISCONNECT).data(), 2);
+
+	for(unsigned int i = 0; i < luaStates.size(); i++)
+		(*luaStates[i])["clientDisconnected"](client);
 	
 	Log("(%d) \"%s:%d\" disconnected", client->id, client->address, client->port);
 
@@ -765,6 +788,7 @@ void timer_loop()
 					ss << bytesOutSecFinal << "b/s out]";
 			}
 			Utils::SetTitle(ss.str());
+			world->SetTitle(ss.str().c_str());
 			
 			ss.clear();
 			ss.str(string());
@@ -779,3 +803,45 @@ void timer_loop()
 		milliseconds += 100;
 	}
 }
+<<<<<<< HEAD
+=======
+
+void luaLog(string s) { Log(("[LUA] " + s).c_str()); }
+void luaLogDebug(string s) { LogDebug(("[LUA] " + s).c_str()); }
+void luaLogWarning(string s) { LogWarning(("[LUA] " + s).c_str()); }
+void luaLogError(string s) { LogError(("[LUA] " + s).c_str()); }
+
+void LoadPlugins()
+{
+	LogDebug("Loading plugins...");
+	vector<string> pluginFiles = Utils::GetFilesInDir(Settings::PluginDir);
+	for(unsigned int i = 0; i < pluginFiles.size(); i++)
+	{
+		State* state = new State();
+
+		(*state)["log"] = &luaLog;
+		(*state)["logDebug"] = &luaLogDebug;
+		(*state)["logWarning"] = &luaLogWarning;
+		(*state)["logError"] = &luaLogError;
+
+		state->Load(Settings::PluginDir + pluginFiles[i]);
+		(*state)["onEnabled"]();
+
+		luaStates.push_back(state);
+		LogDebug("Loaded \"%s\"", (Settings::PluginDir + pluginFiles[i]).c_str());
+	}
+	LogDebug("Loaded %d %s", luaStates.size(), luaStates.size() == 1 ? "plugin" : "plugins");
+}
+
+void DisablePlugins()
+{
+	LogDebug("Stopping plugins..");
+	for(unsigned int i = 0; i < luaStates.size(); i++)
+	{
+		(*luaStates[i])["onDisabled"]();
+		delete luaStates[i];
+	}
+	luaStates.clear();
+	LogDebug("Stopped all plugins");
+}
+>>>>>>> Made changes to server

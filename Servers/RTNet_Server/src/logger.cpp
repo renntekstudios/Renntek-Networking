@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdarg>
+#include <sstream>
 #include "logger.h"
 #include "settings.h"
 
@@ -8,23 +9,48 @@ using namespace RTNet;
 
 void _internal_log(const char* file, int line, const string& message)
 {
-	cout << "[" << __TIME__ << "](\"" << file << "\", line " << line << ") " << message << endl;
+	stringstream ss;
+	if(Settings::Timestamp)
+		ss << "[" << __TIME__ << "]";
+	if(Settings::DebugLine)
+		ss << "(\"" << file << "\", line " << line << ") ";
+	ss << message;
+	cout << ss.str() << endl;
 }
 
 void _internal_log_debug(const char* file, int line, const string& message)
 {
-	if(Settings::DebugMode)
-		cout << "[" << __TIME__ << "](\"" << file << "\", line " << line << ")[DEBUG] " << message << endl;
+	if(!Settings::DebugMode)
+		return;
+	stringstream ss;
+	if(Settings::Timestamp)
+		ss << "[" << __TIME__ << "]";
+	if(Settings::DebugLine)
+		ss << "(\"" << file << "\", line " << line << ")";
+	ss << "[DEBUG] " << message;
+	cout << ss.str() << endl;
 }
 
 void _internal_log_error(const char* file, int line, const string& message)
 {
-	cerr << "[" << __TIME__ << "](\"" << file << "\", line " << line << ")[ERROR] " << message << endl;
+	stringstream ss;
+	if(Settings::Timestamp)
+		ss << "[" << __TIME__ << "]";
+	if(Settings::DebugLine)
+		ss << "(\"" << file << "\", line " << line << ")";
+	ss << "[ERROR] " << message;
+	cerr << ss.str() << endl;
 }
 
 void _internal_log_warning(const char* file, int line, const string& message)
 {
-	cout << "[" << __TIME__ << "](\"" << file << "\", line " << line << ")[WARNING] " << message << endl;
+	stringstream ss;
+	if(Settings::Timestamp)
+		ss << "[" << __TIME__ << "]";
+	if(Settings::DebugLine)
+		ss << "(\"" << file << "\", line " << line << ")";
+	ss << "[WARNING] " << message;
+	cout << ss.str() << endl;
 }
 
 string _internal_string_vsprintf(const char *format, va_list args)

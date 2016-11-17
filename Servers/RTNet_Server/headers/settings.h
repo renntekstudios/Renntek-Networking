@@ -13,7 +13,8 @@ namespace RTNet
 	{
 	public:
 		static const string ResourceDir;
-		static const string AccountDir;
+		static const string PluginDir;
+		static const string ShaderDir;
 
 		static const string Version;
 
@@ -24,6 +25,8 @@ namespace RTNet
 		static RT_UNKNOWN_BEHAVIOUR UnknownBehaviour;
 
 		static bool DebugMode;
+		static bool Timestamp;
+		static bool DebugLine;
 
 		static void Initialize(string path);
 		static bool Read();
